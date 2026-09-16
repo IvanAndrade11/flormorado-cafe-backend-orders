@@ -4,3 +4,9 @@ compatibility_date = "2026-09-15"
 
 [observability]
 enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "flormorado-orders"
+database_id = "65bee66d-4b11-4375-8eb9-03f433b58a2e"
+migrations_dir = "migrations"
