@@ -142,6 +142,8 @@ Los **secretos** viven en el almacén de Cloudflare y se cargan con `npx wrangle
 | `BREB_KEY`                 | Variable | Llave BRE-B de la empresa                               |
 | `BREB_HOLDER`              | Variable | Titular que el cliente verá al confirmar la transferencia |
 | `ADMIN_PASSWORD`           | Secreto  | Clave del panel de pedidos — fase 4                     |
+| `WHATSAPP_VERIFY_TOKEN`    | Secreto  | Cadena que inventamos; Meta la usa para verificar el webhook |
+| `WHATSAPP_APP_SECRET`      | Secreto  | Secreto de la app de Meta, valida la firma de cada webhook |
 | `WHATSAPP_TOKEN`           | Secreto  | Token permanente de Meta — fase 7                       |
 | `WHATSAPP_PHONE_NUMBER_ID` | Secreto  | ID del número en la Cloud API — fase 7                  |
 | `TURNSTILE_SECRET`         | Secreto  | Secreto del widget de Turnstile — fase 8                |
@@ -173,6 +175,8 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | ------ | --------- | --------------------------------------------------------------- |
 | `GET`  | `/health` | Verifica que el servicio está arriba. Abierto a cualquier origen |
 | `POST` | `/orders` | Crea un pedido. Solo acepta llamadas desde los orígenes autorizados |
+| `GET`  | `/webhooks/whatsapp` | Verificación del webhook: responde el `hub.challenge` de Meta |
+| `POST` | `/webhooks/whatsapp` | Recibe eventos de Meta. Solo acepta payloads con firma HMAC válida |
 
 Respuestas de `POST /orders`:
 

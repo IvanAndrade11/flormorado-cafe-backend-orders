@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { health, orders } from "@/routes";
+import { health, orders, whatsapp } from "@/routes";
 import { sendPendingDigest } from "@/services/digest";
 import type { Env } from "@/types/env";
 
@@ -31,6 +31,7 @@ app.use(
 
 app.route("/health", health);
 app.route("/orders", orders);
+app.route("/webhooks/whatsapp", whatsapp);
 
 export default {
   fetch: app.fetch,
