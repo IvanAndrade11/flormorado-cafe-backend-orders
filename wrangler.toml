@@ -5,8 +5,17 @@ compatibility_date = "2026-09-15"
 [observability]
 enabled = true
 
+[vars]
+ORDERS_EMAIL_FROM = "Flormorado Café <pedidos@flormoradocafe.com>"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "flormorado-orders"
 database_id = "65bee66d-4b11-4375-8eb9-03f433b58a2e"
 migrations_dir = "migrations"
+
+# Los Cron Triggers corren en UTC y Colombia es UTC−5 sin horario de verano,
+# así que "cada hora de 8am a 8pm" son las horas 13–23 y 0–1 en UTC. Escrito
+# como `0 8-20 * * *` se ejecutaría de 3am a 3pm hora Colombia.
+[triggers]
+crons = ["0 13-23,0-1 * * *"]

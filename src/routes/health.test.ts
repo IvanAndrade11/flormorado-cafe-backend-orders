@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import app from "@/index";
+import { app } from "@/index";
 import { SERVICE_NAME } from "@/utils/constants";
 
 describe("GET /health", () => {

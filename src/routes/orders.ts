@@ -12,8 +12,14 @@ import {
   persistOrder,
   priceFromClient,
   priceOrder,
+  recordEmailStatus,
   type PricedOrder,
 } from "@/services/orders";
+import { sendEmail } from "@/services/resend";
+import {
+  confirmationHtml,
+  confirmationSubject,
+} from "@/templates/orderConfirmation";
 import type { Env } from "@/types/env";
 
 export const orders = new Hono<{ Bindings: Env }>();
@@ -98,6 +104,32 @@ orders.post("/", async (c) => {
         pricesVerified,
         now,
       });
+
+      // El correo sale en segundo plano: el pedido ya está guardado, así que
+      // hacer esperar al cliente por Resend solo aumentaría la probabilidad de
+      // que cierre la pestaña antes de ver su confirmación.
+      c.executionCtx.waitUntil(
+        (async () => {
+          const sent = await sendEmail({
+            apiKey: c.env.RESEND_API_KEY,
+            from: c.env.ORDERS_EMAIL_FROM,
+            to: request.contact.email,
+            subject: confirmationSubject(orderId),
+            html: confirmationHtml({
+              orderId,
+              request,
+              lines: priced.lines,
+              totals: priced.totals,
+            }),
+          });
+
+          await recordEmailStatus(
+            c.env,
+            orderId,
+            sent.ok ? "enviado" : `fallo: ${sent.error}`,
+          );
+        })(),
+      );
 
       return c.json(
         {

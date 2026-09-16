@@ -192,6 +192,12 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
   await env.DB.batch([insertOrder, ...insertItems]);
 };
 
+/** Deja rastro de si el correo al cliente salió, para que el panel lo muestre. */
+export const recordEmailStatus = (env: Env, orderId: string, status: string) =>
+  env.DB.prepare("UPDATE orders SET email_status = ?2 WHERE id = ?1")
+    .bind(orderId, status.slice(0, 200))
+    .run();
+
 export const findByIdempotencyKey = (env: Env, key: string) =>
   env.DB.prepare(
     "SELECT id, total, prices_verified FROM orders WHERE idempotency_key = ?1",

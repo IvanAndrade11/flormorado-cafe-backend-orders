@@ -7,6 +7,10 @@ export const FREE_SHIPPING_FROM = 150000;
 export const parseCopPrice = (price: string): number =>
   Number(price.replace(/\./g, ""));
 
+/** 45000 -> "$ 45.000". Mismo formato que ve el cliente en la tienda. */
+export const formatCop = (value: number): string =>
+  `$ ${new Intl.NumberFormat("es-CO").format(value)}`;
+
 /**
  * Una línea del pedido con su precio ya resuelto. Los campos descriptivos son
  * opcionales porque cuando el catálogo no está disponible solo conocemos lo que

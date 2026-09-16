@@ -1,15 +1,25 @@
 // Debe coincidir con BOGOTA_NEARBY_CITIES del frontend: el negocio entrega en
 // moto, así que el alcance es Bogotá y municipios aledaños.
-export const DELIVERY_CITIES = [
-  "bogota",
-  "soacha",
-  "chia",
-  "cota",
-  "cajica",
-  "la-calera",
-  "mosquera",
-  "funza",
-] as const;
+export const CITY_LABELS = {
+  bogota: "Bogotá D.C.",
+  soacha: "Soacha",
+  chia: "Chía",
+  cota: "Cota",
+  cajica: "Cajicá",
+  "la-calera": "La Calera",
+  mosquera: "Mosquera",
+  funza: "Funza",
+} as const;
+
+export const DELIVERY_CITIES = Object.keys(CITY_LABELS) as [
+  keyof typeof CITY_LABELS,
+  ...(keyof typeof CITY_LABELS)[],
+];
+
+export const PAYMENT_LABELS = {
+  cash_on_delivery: "Pago contraentrega",
+  bre_b: "Llave BRE-B",
+} as const;
 
 export const DOCUMENT_TYPES = ["CC", "CE", "NIT", "PA"] as const;
 
