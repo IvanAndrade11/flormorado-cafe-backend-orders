@@ -10,4 +10,8 @@ export interface Env {
   // Buzón del negocio que recibe el resumen. Va como secreto para no publicar
   // un correo privado en un repositorio abierto.
   ORDERS_EMAIL_TO: string;
+  // Orígenes autorizados para llamar al endpoint desde un navegador, separados
+  // por coma. Es una lista y no un valor único para poder probar desde otro
+  // origen sin cambiar código.
+  ALLOWED_ORIGINS: string;
 }
