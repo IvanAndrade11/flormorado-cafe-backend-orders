@@ -33,3 +33,25 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # El despliegue corre aquí y no desde una máquina local a propósito: la red
+  # corporativa de la máquina de desarrollo intercepta HTTPS y bloquea la subida
+  # del bundle a la API de Cloudflare. Además deja el deploy reproducible.
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
