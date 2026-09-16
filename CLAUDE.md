@@ -30,7 +30,11 @@ To run a single test file, pass it to Vitest directly: `npx vitest run src/route
 
 Tests live colocated with the source they cover (`health.ts` + `health.test.ts` in the same folder), matching the frontend's convention. Hono apps are runtime-agnostic, so routes are tested by calling `app.request(path)` directly — no Workers runtime needed for routing and handler logic.
 
-`.github/workflows/ci.yml` runs `tsc --noEmit`, lint, format check, tests, and build on every PR to `main` and every push to `main` — treat a red CI check the same as a local failure. CI does not deploy and needs no Cloudflare credentials: `npm run build` is `wrangler deploy --dry-run`, which only bundles.
+`.github/workflows/ci.yml` runs `tsc --noEmit`, lint, format check, tests, and build on every PR to `main` and every push to `main` — treat a red CI check the same as a local failure. On pushes to `main` a second job, `deploy`, publishes the Worker with `cloudflare/wrangler-action` using the `CLOUDFLARE_API_TOKEN` repo secret. The checks job itself needs no credentials: `npm run build` is `wrangler deploy --dry-run`, which only bundles.
+
+**The deploy job applies D1 migrations first, then publishes.** `d1 migrations apply flormorado-orders --remote` runs as its own step before the deploy step, so new code never goes live against a schema that lacks its columns — code that writes to a missing column fails every order. If the migration step fails, the deploy step doesn't run and production keeps the previous version. That requires the `CLOUDFLARE_API_TOKEN` to carry **D1: Edit**. Every migration must still be additive (new tables, nullable columns): for the seconds between the two steps, the old code runs against the new schema.
+
+**The same timing gap applies to the request contract.** This service deploys automatically on merge; the storefront deploys by hand (`npm run deploy` in the frontend repo). Any new field in `POST /orders` has to be optional here, or the storefront already in production starts getting 400s the moment this repo merges. `contact.marketingConsentVersion` is optional for exactly that reason.
 
 ## Toolchain constraints
 
@@ -58,7 +62,7 @@ Follow the frontend repo's convention, one line, no body:
 
 Secrets live in Cloudflare's secret store, loaded with `npx wrangler secret put NAME`, and never in the repository. For local development they go in `.dev.vars` at the root, which is gitignored along with `.wrangler/`.
 
-The service currently needs no variables. `README.md` lists the ones each upcoming phase introduces.
+`README.md` lists every binding, secret and variable with its purpose. Secrets in production: `CONFIGCAT_SDK_KEY`, `RESEND_API_KEY`, `ORDERS_EMAIL_TO`. For local work `.dev.vars` needs at least `CONFIGCAT_SDK_KEY` and `ALLOWED_ORIGINS=http://localhost:3000` (it overrides the `wrangler.toml` value); without `RESEND_API_KEY` orders still save and the email failure is recorded in `email_status`, which is a useful way to exercise that path.
 
 **TLS interception on the primary dev machine.** That machine sits behind a Netskope corporate gateway (`ca.adldigitallab.goskope.com`) which re-signs HTTPS. macOS trusts that CA, so browsers and system `curl` work normally, but Node uses its own bundled CA store and rejects it — every wrangler command that talks to Cloudflare fails with `fetch failed` / `SELF_SIGNED_CERT_IN_CHAIN`, and wrangler's own error text misleadingly blames general connectivity. The fix is to point Node at the system keychain:
 
@@ -81,6 +85,14 @@ What *is* reachable from that machine: `api.cloudflare.com` (so D1 queries, secr
 
 **Path alias**: `@/*` → `src/*`, declared in **both** `tsconfig.json` and `vitest.config.mts`. Keep them in sync — a change in one without the other breaks either the type check or the tests, and the failure message won't point at the alias.
 
-**Folder layering** under `src/`: `routes/` (HTTP endpoints), `types/` (shared TypeScript types), `utils/constants/` (shared constants). Folders for database access, external service clients, validation schemas, and notification templates are added in the phase that first needs them rather than pre-created empty.
+**Folder layering** under `src/`: `routes/` (HTTP endpoints), `schemas/` (Zod validation for the order request and the ConfigCat catalog), `services/` (D1 access in `orders.ts`, plus ConfigCat, Resend, the hourly digest, and BRE-B payment instructions), `templates/` (email HTML), `types/` (the Worker `Env`), `utils/constants/` (cities, order statuses, pricing rules). New folders are added when something first needs them, not pre-created empty.
 
-**Order of operations for a new order** (from phase 2 onward, and the rule most worth preserving): validate → recalculate the total server-side → **persist to D1** → respond to the client → then notify. Persistence comes before every notification so a failure in Resend or the WhatsApp API can never produce a lost order. Never trust a total sent by the browser.
+**Order of operations for a new order** (the rule most worth preserving): validate → recalculate the total from the ConfigCat catalog → **persist customer, order and line items in one `DB.batch`** → respond to the client → notify in `waitUntil`. Persistence comes before every notification so a failure in Resend or the WhatsApp API can never produce a lost order. Never trust a price or total sent by the browser; its prices are only compared, to detect a stale cart (409).
+
+**Customers and consent** (`migrations/0004`). `customers` is keyed by the 10-digit cell phone, because that is how WhatsApp identifies a person, and is upserted by every order in the same batch — D1 runs a batch as a transaction, so a failed order insert (e.g. an idempotency race) rolls the customer write back too. The order finds its `customer_id` with a subquery on the phone rather than a `RETURNING`, since statements in a batch can't read each other's results. Business rules confirmed by the owner, which the SQL encodes:
+- The latest order defines both the contact details and the WhatsApp marketing consent. An order with the box unchecked turns marketing off.
+- `marketing_updated_at` only moves when the consent value actually changes (the `CASE` in the upsert reads the old row). `updated_at` moves on every order.
+- Proof of consent under Colombia's Ley 1581 lives on `orders`: `whatsapp_opt_in` plus `marketing_consent_version` (the version of the checkbox text the customer saw) plus `created_at`. Don't aggregate it away.
+- Counts, totals and purchase dates are derived from `orders`, never stored on `customers`.
+
+**BRE-B payment instructions.** `BREB_KEY` and `BREB_HOLDER` are `[vars]` in `wrangler.toml`, deliberately not secrets and not ConfigCat: they are shown to every customer anyway, and keeping them in git leaves a trail if someone swaps the key to redirect payments. `breBInstructions` (`src/services/payments.ts`) is the single source for both the `instruccionesPago` field of the response and the confirmation email, so the two can't disagree. The holder name matters: the customer's bank shows the recipient's (masked) name before confirming, and the email tells them what to check it against.
