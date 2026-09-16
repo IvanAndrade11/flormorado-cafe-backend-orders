@@ -51,6 +51,16 @@ jobs:
 
       - run: npm ci
 
+      # Antes del deploy: el código nuevo puede escribir en tablas o columnas que
+      # solo existen después de migrar. Si este paso falla, el deploy no corre y
+      # producción sigue con el código anterior. Las migraciones ya aplicadas se
+      # omiten, así que repetir el paso es seguro.
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: d1 migrations apply flormorado-orders --remote
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
