@@ -1,4 +1,5 @@
 import type { OrderRequest } from "@/schemas/order";
+import type { BreBInstructions } from "@/services/payments";
 import {
   CITY_LABELS,
   formatCop,
@@ -47,16 +48,34 @@ const totalRow = (label: string, value: string, strong = false) => `
   </tr>`;
 
 /** Qué sigue después de confirmar, que depende del método de pago. */
-const nextSteps = (request: OrderRequest, total: number) =>
-  request.payment.method === "cash_on_delivery"
-    ? `Pagas al momento de recibir tu pedido. Ten listos <strong>${formatCop(total)}</strong> en efectivo.`
-    : `Ya registramos que vas a pagar con tu llave BRE-B <strong>${escape(request.payment.breKey)}</strong>. Te escribimos de nuevo en cuanto confirmemos la transferencia.`;
+const nextSteps = (
+  request: OrderRequest,
+  total: number,
+  orderId: string,
+  instructions?: BreBInstructions,
+) => {
+  if (request.payment.method === "cash_on_delivery") {
+    return `Pagas al momento de recibir tu pedido. Ten listos <strong>${formatCop(total)}</strong> en efectivo.`;
+  }
+
+  if (!instructions) {
+    return `Te contactaremos para completar el pago, y empezamos a preparar tu pedido en cuanto lo confirmemos.`;
+  }
+
+  // El nombre y el número de pedido no son adorno: el primero es la defensa del
+  // cliente contra una llave suplantada, el segundo es lo que nos permite saber
+  // a qué pedido corresponde cada transferencia.
+  return `Transfiere <strong>${formatCop(total)}</strong> a la llave BRE-B <strong>${escape(instructions.llave)}</strong>.<br><br>
+    Antes de confirmar, tu banco te mostrará el nombre del receptor: verifica que corresponda a <strong>${escape(instructions.titular)}</strong>.<br><br>
+    En el mensaje de la transferencia escribe tu número de pedido, <strong>${orderId}</strong>. Empezamos a preparar tu pedido en cuanto confirmemos el pago.`;
+};
 
 export interface ConfirmationArgs {
   orderId: string;
   request: OrderRequest;
   lines: PricedLine[];
   totals: Totals;
+  paymentInstructions?: BreBInstructions;
 }
 
 export const confirmationSubject = (orderId: string) =>
@@ -67,6 +86,7 @@ export const confirmationHtml = ({
   request,
   lines,
   totals,
+  paymentInstructions,
 }: ConfirmationArgs) => {
   const { contact, delivery } = request;
 
@@ -111,7 +131,7 @@ export const confirmationHtml = ({
       <td style="padding:22px 28px 28px">
         <div style="background:#f1dee7;border-radius:8px;padding:14px 16px">
           <div style="color:${PLUM};font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;margin-bottom:4px">Qué sigue</div>
-          <p style="margin:0;color:${INK};font-size:15px;line-height:1.5">${nextSteps(request, totals.total)}</p>
+          <p style="margin:0;color:${INK};font-size:15px;line-height:1.5">${nextSteps(request, totals.total, orderId, paymentInstructions)}</p>
         </div>
       </td>
     </tr>

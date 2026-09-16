@@ -15,6 +15,7 @@ import {
   recordEmailStatus,
   type PricedOrder,
 } from "@/services/orders";
+import { breBInstructions } from "@/services/payments";
 import { sendEmail } from "@/services/resend";
 import {
   confirmationHtml,
@@ -26,6 +27,21 @@ export const orders = new Hono<{ Bindings: Env }>();
 
 const isUniqueViolation = (error: unknown) =>
   error instanceof Error && /UNIQUE constraint failed/i.test(error.message);
+
+type ExistingOrder = NonNullable<
+  Awaited<ReturnType<typeof findByIdempotencyKey>>
+>;
+
+// Un reintento del navegador recibe exactamente lo mismo que la primera
+// respuesta, instrucciones de pago incluidas: puede que la primera nunca le
+// haya llegado.
+const alreadyCreated = (env: Env, order: ExistingOrder) => ({
+  orderId: order.id,
+  total: order.total,
+  preciosVerificados: order.prices_verified === 1,
+  yaExistia: true,
+  instruccionesPago: breBInstructions(env, order.payment_method),
+});
 
 orders.post("/", async (c) => {
   const body = await c.req.json().catch(() => null);
@@ -52,14 +68,7 @@ orders.post("/", async (c) => {
   // Si el navegador reintenta por un fallo de red, devolvemos el pedido que ya
   // se creó en lugar de crear uno nuevo.
   const existing = await findByIdempotencyKey(c.env, request.idempotencyKey);
-  if (existing) {
-    return c.json({
-      orderId: existing.id,
-      total: existing.total,
-      preciosVerificados: existing.prices_verified === 1,
-      yaExistia: true,
-    });
-  }
+  if (existing) return c.json(alreadyCreated(c.env, existing));
 
   let priced: PricedOrder;
   let pricesVerified = true;
@@ -92,6 +101,7 @@ orders.post("/", async (c) => {
   }
 
   const now = new Date();
+  const paymentInstructions = breBInstructions(c.env, request.payment.method);
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const orderId = await buildOrderId(c.env.DB, now);
@@ -120,6 +130,7 @@ orders.post("/", async (c) => {
               request,
               lines: priced.lines,
               totals: priced.totals,
+              paymentInstructions,
             }),
           });
 
@@ -136,6 +147,7 @@ orders.post("/", async (c) => {
           orderId,
           total: priced.totals.total,
           preciosVerificados: pricesVerified,
+          instruccionesPago: paymentInstructions,
         },
         201,
       );
@@ -146,14 +158,7 @@ orders.post("/", async (c) => {
       // —reintentamos— o el navegador mandó dos veces la misma llave y ganó la
       // otra petición, en cuyo caso devolvemos ese pedido.
       const raced = await findByIdempotencyKey(c.env, request.idempotencyKey);
-      if (raced) {
-        return c.json({
-          orderId: raced.id,
-          total: raced.total,
-          preciosVerificados: raced.prices_verified === 1,
-          yaExistia: true,
-        });
-      }
+      if (raced) return c.json(alreadyCreated(c.env, raced));
     }
   }
 

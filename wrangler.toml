@@ -9,6 +9,12 @@ enabled = true
 ORDERS_EMAIL_FROM = "Flormorado Café <pedidos@flormoradocafe.com>"
 # El sitio usa HashRouter, así que todas las rutas viven en este mismo origen.
 ALLOWED_ORIGINS = "https://flormoradocafe.com,https://www.flormoradocafe.com"
+# Se le muestran a todo cliente que paga por transferencia. Cambiarlas aquí, y
+# no en ConfigCat, deja rastro en git de quién las cambió y cuándo.
+# PENDIENTE: BREB_HOLDER sigue con valor de prueba; confirmar el titular real
+# antes de mezclar FMC-0017.
+BREB_KEY = "0090486453"
+BREB_HOLDER = "TITULAR DE PRUEBA"
 
 [[d1_databases]]
 binding = "DB"

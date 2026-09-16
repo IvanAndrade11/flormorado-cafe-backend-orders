@@ -14,4 +14,9 @@ export interface Env {
   // por coma. Es una lista y no un valor único para poder probar desde otro
   // origen sin cambiar código.
   ALLOWED_ORIGINS: string;
+  // Llave BRE-B de la empresa y titular que el cliente ve al confirmar la
+  // transferencia. Van como variables en wrangler.toml a propósito: no son
+  // secretas, y tenerlas en git deja rastro si alguien las cambia.
+  BREB_KEY: string;
+  BREB_HOLDER: string;
 }
