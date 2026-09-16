@@ -1,0 +1,58 @@
+// Estructura del flag `storeProducts` de ConfigCat.
+//
+// El valor del flag es un STRING que contiene este JSON: hay que pasarlo por
+// JSON.parse antes de usarlo. Es el catálogo con el que el backend verifica
+// los precios de un pedido, así que la forma de aquí no es documentación
+// decorativa — está validada en tiempo de ejecución por el esquema Zod en
+// `src/schemas/catalog.ts`, y si ConfigCat deja de cumplirla el servicio falla
+// con un error que nombra el campo, en vez de calcular totales incorrectos.
+//
+// Capturado del flag real el 2026-09-15.
+
+{
+  "products": [
+    {
+      "id": "FLORMORADO500", // Identificador único; es la llave con la que el backend busca el producto para verificar su precio
+      "stock": true, // Si es false el producto está agotado y el backend rechaza el pedido
+      "brand": "flormorado", // Marca; se usa para el filtro de la tienda
+      "name": "FLORMORADO CAFÉ 500 G", // Nombre visible, y el que aparece en el correo de confirmación
+      "imageUrl": "https://res.cloudinary.com/.../FMC-item-1.png", // Imagen del producto (Cloudinary)
+      "shortDescription": "Café de origen 100% Colombiano\nRegión Boyacá\nPresentación 500 g", // Descripción corta de la tarjeta; admite saltos de línea
+      "grinding": "Gruesa", // Molienda por defecto; en el carrito el cliente elige la suya y esa es la que viaja en el pedido
+      "roastOptions": "Media", // Nivel de tueste
+      "variety": "Blend", // Variedad; se usa para el filtro de la tienda
+      "size": "500", // Presentación en gramos, como string sin unidad
+      "price": "45.000", // OJO: string en formato colombiano, con punto de miles. Hay que quitar los puntos antes de convertir a número: "45.000" -> 45000
+      "shippingPrice": 7000, // Costo de envío en pesos, como NÚMERO (no string, a diferencia de price)
+      "process": {
+        "benefit": "Lavado", // Proceso de beneficio
+        "drying": "Marquesina - Sol", // Método de secado
+        "controlledFermentation": "14 horas" // Tiempo de fermentación controlada
+      },
+      "productDescription": "...", // Descripción larga de la página de detalle
+      "tags": ["Café de origen", "Caficultor", "Flormorado Café", "Boyacá"], // Etiquetas libres
+      "category": "CAFÉ", // Debe coincidir con un `name` del flag storeCategories
+      "type": "origin", // Tipo de producto; se usa para el filtro de la tienda
+      "origin": "somondoco" // Municipio de origen; se usa para el filtro de la tienda
+    },
+    {
+      "...": "los demás productos tienen exactamente los mismos campos, ninguno opcional"
+    }
+  ]
+}
+
+// Notas que no se ven en la estructura:
+//
+// 1. `quantity` NO existe en el catálogo. Lo agrega el frontend al añadir un
+//    producto al carrito, por eso en ICoffeeProduct está como opcional.
+//
+// 2. Reglas de precio (definidas en TotalView.tsx del frontend, replicadas en
+//    `src/utils/constants/pricing.ts`):
+//      subtotal = Σ (price sin puntos) × cantidad
+//      envío    = subtotal >= 150000 ? 0 : cart[0].shippingPrice
+//      total    = subtotal + envío
+//    El envío sale del PRIMER producto del carrito, no de la suma ni del mayor.
+//    Hoy es inofensivo porque los 5 productos comparten shippingPrice = 7000,
+//    pero deja de serlo si alguna vez se agrega uno con un envío distinto.
+//
+// 3. Al 2026-09-15 el catálogo tiene 5 productos, todos de categoría CAFÉ.
