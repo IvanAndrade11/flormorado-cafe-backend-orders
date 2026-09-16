@@ -68,6 +68,13 @@ export NODE_OPTIONS=--use-system-ca
 
 Node 22.15+ supports this flag. It works whether or not the VPN client is running, since the interception is done by a system-level agent rather than the VPN tunnel. Keep this in the shell profile, **not** in the repo or CI — CI has no such interception and the flag would be wrong there. Never "fix" this with `NODE_TLS_REJECT_UNAUTHORIZED=0`, which disables certificate verification for all of Node, not just Cloudflare.
 
+**The same gateway blocks `*.workers.dev`,** under its "Technology; Development Tools" category, and serves a 32 KB HTML interstitial instead of the response. Two consequences worth knowing before you spend time debugging a phantom outage:
+
+- `wrangler deploy` and `wrangler dev --remote` fail from that machine with `Received a malformed response from the API` — the HTML block page where JSON was expected. **Deploys therefore run from GitHub Actions** (`.github/workflows/ci.yml`), which is the real reason that job exists.
+- The deployed service cannot be reached from that machine at all, so **verifying it has to happen from outside**: a device off the corporate network, or after clicking through the gateway's own justification prompt. A failed `curl` to the workers.dev URL says nothing about whether the Worker is healthy — check `wrangler d1 execute --remote` (the Cloudflare API is not blocked) or the Cloudflare dashboard instead.
+
+What *is* reachable from that machine: `api.cloudflare.com` (so D1 queries, secrets and migrations all work), `cdn-global.configcat.com`, `api.resend.com`, npm and GitHub.
+
 ## Architecture
 
 **Entry point** (`src/index.ts`): creates the Hono app and mounts route groups with `app.route(prefix, group)`. Each group is its own `Hono` instance exported from `src/routes/`, registered in that folder's `index.ts` barrel — import from the barrel (`@/routes`), not from the file, matching the frontend's barrel convention.
