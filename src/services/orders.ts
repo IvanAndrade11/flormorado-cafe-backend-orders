@@ -139,18 +139,59 @@ export interface PersistArgs {
 export const persistOrder = async (env: Env, args: PersistArgs) => {
   const { orderId, request, priced, pricesVerified, now } = args;
   const { contact, delivery, payment } = request;
+  const timestamp = now.toISOString();
 
+  // Los datos del cliente los define el último pedido, consentimiento incluido:
+  // sin la casilla marcada, deja de recibir novedades. La fecha del
+  // consentimiento solo se mueve cuando el valor cambia.
+  const upsertCustomer = env.DB.prepare(
+    `INSERT INTO customers (
+       phone, name, surname, email, document_type, document_number, city,
+       whatsapp_marketing, marketing_updated_at, created_at, updated_at
+     ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9,?9)
+     ON CONFLICT (phone) DO UPDATE SET
+       name = excluded.name,
+       surname = excluded.surname,
+       email = excluded.email,
+       document_type = excluded.document_type,
+       document_number = excluded.document_number,
+       city = excluded.city,
+       marketing_updated_at = CASE
+         WHEN customers.whatsapp_marketing <> excluded.whatsapp_marketing
+         THEN excluded.marketing_updated_at
+         ELSE customers.marketing_updated_at
+       END,
+       whatsapp_marketing = excluded.whatsapp_marketing,
+       updated_at = excluded.updated_at`,
+  ).bind(
+    contact.phone,
+    contact.name,
+    contact.surname,
+    contact.email,
+    payment.documentType,
+    payment.documentNumber,
+    delivery.city,
+    contact.whatsappOptIn ? 1 : 0,
+    timestamp,
+  );
+
+  // El cliente se busca por celular dentro del mismo lote: el upsert de arriba
+  // ya corrió cuando llega esta instrucción.
   const insertOrder = env.DB.prepare(
     `INSERT INTO orders (
        id, created_at, status, idempotency_key,
        customer_name, customer_surname, email, phone, whatsapp_opt_in, notify_whatsapp,
        city, neighborhood, address, additional_info,
        document_type, document_number, payment_method, bre_key,
-       subtotal, shipping, total, prices_verified
-     ) VALUES (?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)`,
+       subtotal, shipping, total, prices_verified,
+       customer_id, marketing_consent_version
+     ) VALUES (
+       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,
+       (SELECT id FROM customers WHERE phone = ?7), ?22
+     )`,
   ).bind(
     orderId,
-    now.toISOString(),
+    timestamp,
     request.idempotencyKey,
     contact.name,
     contact.surname,
@@ -170,6 +211,7 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     priced.totals.shipping,
     priced.totals.total,
     pricesVerified ? 1 : 0,
+    contact.marketingConsentVersion ?? null,
   );
 
   const insertItems = priced.lines.map((line) =>
@@ -188,8 +230,9 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     ),
   );
 
-  // Un solo batch: el pedido y sus líneas entran juntos o no entra ninguno.
-  await env.DB.batch([insertOrder, ...insertItems]);
+  // Un solo batch: D1 lo ejecuta como transacción, así que cliente, pedido y
+  // líneas entran juntos o no entra ninguno.
+  await env.DB.batch([upsertCustomer, insertOrder, ...insertItems]);
 };
 
 /** Deja rastro de si el correo al cliente salió, para que el panel lo muestre. */
@@ -200,7 +243,12 @@ export const recordEmailStatus = (env: Env, orderId: string, status: string) =>
 
 export const findByIdempotencyKey = (env: Env, key: string) =>
   env.DB.prepare(
-    "SELECT id, total, prices_verified FROM orders WHERE idempotency_key = ?1",
+    "SELECT id, total, prices_verified, payment_method FROM orders WHERE idempotency_key = ?1",
   )
     .bind(key)
-    .first<{ id: string; total: number; prices_verified: number }>();
+    .first<{
+      id: string;
+      total: number;
+      prices_verified: number;
+      payment_method: string;
+    }>();
