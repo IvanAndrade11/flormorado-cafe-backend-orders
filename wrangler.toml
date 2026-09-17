@@ -6,7 +6,7 @@ compatibility_date = "2026-09-15"
 enabled = true
 
 [vars]
-ORDERS_EMAIL_FROM = "Flormorado Café <pedidos@flormoradocafe.com>"
+ORDERS_EMAIL_FROM = "Flormorado Café <info@flormoradocafe.com>"
 # El sitio usa HashRouter, así que todas las rutas viven en este mismo origen.
 ALLOWED_ORIGINS = "https://flormoradocafe.com,https://www.flormoradocafe.com"
 # Se le muestran a todo cliente que paga por transferencia. Cambiarlas aquí, y

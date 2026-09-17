@@ -137,7 +137,7 @@ Los **secretos** viven en el almacén de Cloudflare y se cargan con `npx wrangle
 | `CONFIGCAT_SDK_KEY`        | Secreto  | SDK key de ConfigCat, para leer el catálogo             |
 | `RESEND_API_KEY`           | Secreto  | API key de Resend                                       |
 | `ORDERS_EMAIL_TO`          | Secreto  | Buzón de la empresa que recibe el resumen               |
-| `ORDERS_EMAIL_FROM`        | Variable | Remitente verificado (`pedidos@flormoradocafe.com`)     |
+| `ORDERS_EMAIL_FROM`        | Variable | Remitente verificado (`info@flormoradocafe.com`)     |
 | `ALLOWED_ORIGINS`          | Variable | Orígenes autorizados por CORS, separados por coma       |
 | `BREB_KEY`                 | Variable | Llave BRE-B de la empresa                               |
 | `BREB_HOLDER`              | Variable | Titular que el cliente verá al confirmar la transferencia |
