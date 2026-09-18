@@ -33,7 +33,8 @@ Los dos métodos de pago del negocio —**contraentrega** y **llave BRE-B**— n
 - **Registrar al cliente** por su celular, con su consentimiento vigente para recibir novedades.
 - **Indicar cómo pagar** por BRE-B: la llave y el titular de la empresa van en la respuesta y en el correo.
 - **Notificar** al cliente por correo y al negocio con un resumen cada hora, de 8am a 8pm.
-- **Recibir mensajes de contacto** del formulario de la página de contacto y reenviarlos al correo del negocio, con el correo del cliente como `reply-to`.
+- **Recibir mensajes de contacto** del formulario de la página de contacto, guardarlos y reenviarlos al correo del negocio, con el correo del cliente como `reply-to`.
+- **Exponer el panel de control** (`/admin/*`): pedidos, clientes y mensajes de contacto en JSON, protegidos por clave, para que el frontend los muestre en tablas.
 
 ---
 
@@ -46,13 +47,13 @@ El plan completo, con el avance por paso, vive en el [plan de trabajo](https://c
 | 1    | Andamiaje, tooling, CI y documentación         | ✅ Completa           |
 | 2    | Núcleo del pedido y base de datos D1           | ✅ Completa           |
 | 3    | Correo al cliente y resumen al negocio         | ✅ Falta prueba real  |
-| 4    | Panel de control de pedidos                    | ⏳ Pendiente          |
+| 4    | Panel de control de pedidos (`FMC-0020`)       | ✅ Endpoints listos — la interfaz vive en el frontend |
 | 5    | Conexión con el checkout del frontend          | ✅ PR en revisión     |
 | 6    | Clientes y pago con BRE-B (`FMC-0017`)         | 🔨 En curso           |
 | 7    | Canal de WhatsApp (Meta Cloud API)             | ⏳ Pendiente          |
 | 8    | Endurecimiento (rate limit, alertas)           | ⏳ Pendiente          |
 
-Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que reenvía los mensajes del formulario de contacto del frontend al correo del negocio. ✅ Completo.
+Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que guarda y reenvía los mensajes del formulario de contacto del frontend al correo del negocio. ✅ Completo.
 
 ---
 
@@ -82,14 +83,15 @@ Servicio HTTP en capas separadas por responsabilidad, siguiendo la misma organiz
 ```
 src/
 ├── index.ts          → app de Hono, CORS y cron del resumen
-├── routes/           → health, orders, contact, webhooks/whatsapp
-├── schemas/          → validación Zod del pedido, el contacto y el catálogo
-├── services/         → orders (D1), configcat, payments, resend, whatsapp, digest
-├── templates/        → correo al cliente, aviso de contacto y resumen al negocio
-├── types/            → bindings del Worker
-└── utils/constants/  → ciudades, estados, reglas de precio
-migrations/           → esquema de D1, una migración por cambio
-docs/configCat/       → estructura real del flag storeProducts
+├── middleware/        → adminAuth (clave del panel)
+├── routes/            → health, orders, contact, webhooks/whatsapp, admin*
+├── schemas/           → validación Zod del pedido, el contacto, el catálogo y el panel
+├── services/          → orders (D1), customers, contactMessages, configcat, payments, resend, whatsapp, digest
+├── templates/         → correo al cliente, aviso de contacto y resumen al negocio
+├── types/             → bindings del Worker
+└── utils/constants/   → ciudades, estados, reglas de precio
+migrations/            → esquema de D1, una migración por cambio
+docs/configCat/        → estructura real del flag storeProducts
 ```
 
 **Orden de las operaciones de un pedido:** validar → recalcular el total con el catálogo → guardar cliente, pedido y líneas en un solo lote → responder → notificar en segundo plano.
@@ -178,9 +180,16 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | ------ | --------- | --------------------------------------------------------------- |
 | `GET`  | `/health` | Verifica que el servicio está arriba. Abierto a cualquier origen |
 | `POST` | `/orders` | Crea un pedido. Solo acepta llamadas desde los orígenes autorizados |
-| `POST` | `/contact` | Reenvía un mensaje del formulario de contacto al correo del negocio. Solo acepta llamadas desde los orígenes autorizados |
+| `POST` | `/contact` | Guarda y reenvía un mensaje del formulario de contacto al correo del negocio. Solo acepta llamadas desde los orígenes autorizados |
 | `GET`  | `/webhooks/whatsapp` | Verificación del webhook: responde el `hub.challenge` de Meta |
 | `POST` | `/webhooks/whatsapp` | Recibe eventos de Meta. Solo acepta payloads con firma HMAC válida |
+| `GET`  | `/admin/orders` | Lista pedidos (`limit`, `offset`, `q` por número, `status`). Requiere `Authorization: Bearer <ADMIN_PASSWORD>` |
+| `GET`  | `/admin/orders/:id` | Detalle de un pedido: productos, historial de estado y notificaciones |
+| `PATCH` | `/admin/orders/:id/status` | Cambia el estado del pedido, validando la transición según el método de pago |
+| `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` |
+| `PATCH` | `/admin/customers/:id/opt-out` | Da de baja las novedades por WhatsApp de un cliente (Ley 1581) |
+| `GET`  | `/admin/contact-messages` | Lista los mensajes del formulario de contacto |
+| `PATCH` | `/admin/contact-messages/:id/status` | Marca un mensaje como `atendido` o `nuevo` |
 
 Respuestas de `POST /orders`:
 
@@ -195,9 +204,17 @@ Respuestas de `POST /contact`:
 
 | Código | Cuándo |
 | ------ | ------ |
-| `201`  | Mensaje reenviado al correo del negocio (`ORDERS_EMAIL_TO`), con el correo del cliente como `reply-to` |
+| `201`  | Mensaje guardado y reenviado al correo del negocio (`ORDERS_EMAIL_TO`), con el correo del cliente como `reply-to` |
 | `400`  | Datos inválidos, con el detalle por campo |
-| `502`  | Resend no pudo enviar el correo. A diferencia de un pedido, el mensaje no queda guardado en ningún lado, así que hay que devolver un error para que el frontend reintente en vez de darlo por enviado |
+| `502`  | El mensaje ya quedó guardado, pero Resend no pudo enviarlo: se devuelve un error para que el frontend reintente. Un reintento con el mismo correo y texto reutiliza el mensaje guardado en vez de duplicarlo |
+
+Respuestas de `/admin/*`:
+
+| Código | Cuándo |
+| ------ | ------ |
+| `401`  | Falta el header `Authorization: Bearer <clave>` o la clave no coincide con `ADMIN_PASSWORD` |
+| `404`  | El pedido, cliente o mensaje no existe |
+| `409`  | `PATCH .../orders/:id/status` con una transición que no aplica al estado o método de pago actuales; la respuesta incluye `permitidos` con los estados válidos |
 
 ---
 
