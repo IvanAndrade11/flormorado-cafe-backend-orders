@@ -7,9 +7,9 @@ const env = {
   ALLOWED_ORIGINS: "https://flormoradocafe.com,https://www.flormoradocafe.com",
 } as unknown as Env;
 
-const preflight = (origin: string) =>
+const preflight = (path: string, origin: string) =>
   app.request(
-    "/orders",
+    path,
     {
       method: "OPTIONS",
       headers: {
@@ -20,9 +20,9 @@ const preflight = (origin: string) =>
     env,
   );
 
-describe("CORS en /orders", () => {
+describe.each(["/orders", "/contact"])("CORS en %s", (path) => {
   it("autoriza el origen de la tienda", async () => {
-    const res = await preflight("https://flormoradocafe.com");
+    const res = await preflight(path, "https://flormoradocafe.com");
 
     expect(res.headers.get("access-control-allow-origin")).toBe(
       "https://flormoradocafe.com",
@@ -30,7 +30,7 @@ describe("CORS en /orders", () => {
   });
 
   it("autoriza también el subdominio www", async () => {
-    const res = await preflight("https://www.flormoradocafe.com");
+    const res = await preflight(path, "https://www.flormoradocafe.com");
 
     expect(res.headers.get("access-control-allow-origin")).toBe(
       "https://www.flormoradocafe.com",
@@ -38,14 +38,16 @@ describe("CORS en /orders", () => {
   });
 
   it("no autoriza un origen ajeno", async () => {
-    const res = await preflight("https://sitio-ajeno.example");
+    const res = await preflight(path, "https://sitio-ajeno.example");
 
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
+});
 
-  // Sin esto no se puede verificar el servicio desde fuera de la red del
-  // negocio, que es justamente cómo se comprueba que está arriba.
-  it("deja /health abierto a cualquier origen", async () => {
+// Sin esto no se puede verificar el servicio desde fuera de la red del
+// negocio, que es justamente cómo se comprueba que está arriba.
+describe("GET /health", () => {
+  it("queda abierto a cualquier origen", async () => {
     const res = await app.request("/health", {}, env);
 
     expect(res.status).toBe(200);

@@ -33,6 +33,7 @@ Los dos métodos de pago del negocio —**contraentrega** y **llave BRE-B**— n
 - **Registrar al cliente** por su celular, con su consentimiento vigente para recibir novedades.
 - **Indicar cómo pagar** por BRE-B: la llave y el titular de la empresa van en la respuesta y en el correo.
 - **Notificar** al cliente por correo y al negocio con un resumen cada hora, de 8am a 8pm.
+- **Recibir mensajes de contacto** del formulario de la página de contacto y reenviarlos al correo del negocio, con el correo del cliente como `reply-to`.
 
 ---
 
@@ -50,6 +51,8 @@ El plan completo, con el avance por paso, vive en el [plan de trabajo](https://c
 | 6    | Clientes y pago con BRE-B (`FMC-0017`)         | 🔨 En curso           |
 | 7    | Canal de WhatsApp (Meta Cloud API)             | ⏳ Pendiente          |
 | 8    | Endurecimiento (rate limit, alertas)           | ⏳ Pendiente          |
+
+Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que reenvía los mensajes del formulario de contacto del frontend al correo del negocio. ✅ Completo.
 
 ---
 
@@ -79,10 +82,10 @@ Servicio HTTP en capas separadas por responsabilidad, siguiendo la misma organiz
 ```
 src/
 ├── index.ts          → app de Hono, CORS y cron del resumen
-├── routes/           → health, orders
-├── schemas/          → validación Zod del pedido y del catálogo
-├── services/         → orders (D1), configcat, payments, resend, digest
-├── templates/        → correo al cliente y resumen al negocio
+├── routes/           → health, orders, contact, webhooks/whatsapp
+├── schemas/          → validación Zod del pedido, el contacto y el catálogo
+├── services/         → orders (D1), configcat, payments, resend, whatsapp, digest
+├── templates/        → correo al cliente, aviso de contacto y resumen al negocio
 ├── types/            → bindings del Worker
 └── utils/constants/  → ciudades, estados, reglas de precio
 migrations/           → esquema de D1, una migración por cambio
@@ -136,7 +139,7 @@ Los **secretos** viven en el almacén de Cloudflare y se cargan con `npx wrangle
 | `DB`                       | Binding  | Base D1 `flormorado-orders`                             |
 | `CONFIGCAT_SDK_KEY`        | Secreto  | SDK key de ConfigCat, para leer el catálogo             |
 | `RESEND_API_KEY`           | Secreto  | API key de Resend                                       |
-| `ORDERS_EMAIL_TO`          | Secreto  | Buzón de la empresa que recibe el resumen               |
+| `ORDERS_EMAIL_TO`          | Secreto  | Buzón de la empresa que recibe el resumen y los mensajes de `/contact` |
 | `ORDERS_EMAIL_FROM`        | Variable | Remitente verificado (`info@flormoradocafe.com`)     |
 | `ALLOWED_ORIGINS`          | Variable | Orígenes autorizados por CORS, separados por coma       |
 | `BREB_KEY`                 | Variable | Llave BRE-B de la empresa                               |
@@ -175,6 +178,7 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | ------ | --------- | --------------------------------------------------------------- |
 | `GET`  | `/health` | Verifica que el servicio está arriba. Abierto a cualquier origen |
 | `POST` | `/orders` | Crea un pedido. Solo acepta llamadas desde los orígenes autorizados |
+| `POST` | `/contact` | Reenvía un mensaje del formulario de contacto al correo del negocio. Solo acepta llamadas desde los orígenes autorizados |
 | `GET`  | `/webhooks/whatsapp` | Verificación del webhook: responde el `hub.challenge` de Meta |
 | `POST` | `/webhooks/whatsapp` | Recibe eventos de Meta. Solo acepta payloads con firma HMAC válida |
 
@@ -186,6 +190,14 @@ Respuestas de `POST /orders`:
 | `200`  | La llave de idempotencia ya creó un pedido: se devuelve ese mismo, con `yaExistia: true` |
 | `400`  | Datos inválidos, con el detalle por campo                                                |
 | `409`  | Carrito desactualizado: producto agotado, inexistente o con precio distinto              |
+
+Respuestas de `POST /contact`:
+
+| Código | Cuándo |
+| ------ | ------ |
+| `201`  | Mensaje reenviado al correo del negocio (`ORDERS_EMAIL_TO`), con el correo del cliente como `reply-to` |
+| `400`  | Datos inválidos, con el detalle por campo |
+| `502`  | Resend no pudo enviar el correo. A diferencia de un pedido, el mensaje no queda guardado en ningún lado, así que hay que devolver un error para que el frontend reintente en vez de darlo por enviado |
 
 ---
 
