@@ -3,7 +3,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "@/index";
 import type { Env } from "@/types/env";
 
+// FMC-0020: el mensaje de contacto ahora se guarda en D1 antes de notificar,
+// así que las rutas necesitan un binding `DB`. No hay tabla real detrás: solo
+// lo suficiente para que `findRecentDuplicate` no encuentre nada y
+// `persistContactMessage`/`recordContactMessageEmailStatus` respondan.
+const fakeDb = (): D1Database => {
+  let nextId = 1;
+  const statement = {
+    bind: () => statement,
+    first: async () => null,
+    run: async () => ({
+      success: true,
+      meta: { last_row_id: nextId++, changes: 1 },
+    }),
+  };
+  return { prepare: () => statement } as unknown as D1Database;
+};
+
 const env = {
+  DB: fakeDb(),
   ALLOWED_ORIGINS: "https://flormoradocafe.com",
   RESEND_API_KEY: "re_test",
   ORDERS_EMAIL_FROM: "info@flormoradocafe.com",

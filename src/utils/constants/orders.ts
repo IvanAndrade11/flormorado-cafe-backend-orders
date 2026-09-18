@@ -39,3 +39,32 @@ export const ORDER_FLOW = {
 } as const;
 
 export const CANCELLED = "cancelado" as const;
+
+export const ORDER_STATUSES = [
+  "nuevo",
+  "pago_confirmado",
+  "en_preparacion",
+  "por_entregar",
+  "entregado",
+  "cancelado",
+] as const;
+
+/**
+ * Próximos estados válidos desde el estado y método de pago actuales. El
+ * panel solo debería ofrecer estos como opción, pero quien de verdad lo exige
+ * es `updateOrderStatus` en el backend — nunca confiar en lo que mande el
+ * panel, igual que nunca se confía en el total que manda el navegador.
+ */
+export const nextStatuses = (
+  paymentMethod: (typeof PAYMENT_METHODS)[number],
+  current: string,
+): string[] => {
+  if (current === CANCELLED) return [];
+
+  const flow: readonly string[] = ORDER_FLOW[paymentMethod];
+  const index = flow.indexOf(current);
+  if (index === -1) return [CANCELLED];
+
+  const forward = index < flow.length - 1 ? [flow[index + 1]] : [];
+  return [...forward, CANCELLED];
+};

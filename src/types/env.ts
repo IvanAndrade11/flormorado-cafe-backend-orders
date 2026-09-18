@@ -25,4 +25,8 @@ export interface Env {
   // Secreto de la app de Meta (Configuración básica > App secret), usado para
   // validar que cada POST del webhook viene realmente de Meta.
   WHATSAPP_APP_SECRET: string;
+  // Clave del panel de pedidos (fase 4). El frontend la manda como
+  // `Authorization: Bearer <clave>` en cada llamada a /admin/*; nunca viaja en
+  // el bundle público.
+  ADMIN_PASSWORD: string;
 }

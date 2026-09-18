@@ -1,24 +1,35 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { contact, health, orders, whatsapp } from "@/routes";
+import { adminAuth } from "@/middleware/adminAuth";
+import {
+  adminContactMessages,
+  adminCustomers,
+  adminOrders,
+  contact,
+  health,
+  orders,
+  whatsapp,
+} from "@/routes";
 import { sendPendingDigest } from "@/services/digest";
 import type { Env } from "@/types/env";
 
 export const app = new Hono<{ Bindings: Env }>();
+
+// El middleware de Hono entrega un Context genérico, así que `c.env` no viene
+// tipado con nuestro Env y hay que afirmarlo.
+const parseAllowedOrigins = (env: Env): string[] =>
+  (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((value: string) => value.trim())
+    .filter(Boolean);
 
 // Solo la tienda puede llamar a estos endpoints desde un navegador. `/health`
 // queda abierto a propósito: no expone datos y sirve para verificar el
 // servicio desde cualquier parte.
 const storeCors = cors({
   origin: (origin, c) => {
-    // El middleware de Hono entrega un Context genérico, así que `c.env` no
-    // viene tipado con nuestro Env y hay que afirmarlo.
-    const configured = (c.env as Env).ALLOWED_ORIGINS ?? "";
-    const allowed = configured
-      .split(",")
-      .map((value: string) => value.trim())
-      .filter(Boolean);
+    const allowed = parseAllowedOrigins(c.env as Env);
     return allowed.includes(origin) ? origin : null;
   },
   allowMethods: ["POST", "OPTIONS"],
@@ -26,13 +37,31 @@ const storeCors = cors({
   maxAge: 86400,
 });
 
+// El panel vive en el mismo origen que la tienda (una ruta más del SPA), así
+// que reutiliza ALLOWED_ORIGINS. A diferencia de storeCors necesita GET y
+// PATCH, y el header Authorization para la clave del panel.
+const adminCors = cors({
+  origin: (origin, c) => {
+    const allowed = parseAllowedOrigins(c.env as Env);
+    return allowed.includes(origin) ? origin : null;
+  },
+  allowMethods: ["GET", "PATCH", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  maxAge: 86400,
+});
+
 app.use("/orders/*", storeCors);
 app.use("/contact/*", storeCors);
+app.use("/admin/*", adminCors);
+app.use("/admin/*", adminAuth);
 
 app.route("/health", health);
 app.route("/orders", orders);
 app.route("/contact", contact);
 app.route("/webhooks/whatsapp", whatsapp);
+app.route("/admin/orders", adminOrders);
+app.route("/admin/customers", adminCustomers);
+app.route("/admin/contact-messages", adminContactMessages);
 
 export default {
   fetch: app.fetch,
