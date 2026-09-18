@@ -1,36 +1,37 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { health, orders, whatsapp } from "@/routes";
+import { contact, health, orders, whatsapp } from "@/routes";
 import { sendPendingDigest } from "@/services/digest";
 import type { Env } from "@/types/env";
 
 export const app = new Hono<{ Bindings: Env }>();
 
-// Solo la tienda puede llamar al endpoint desde un navegador. `/health` queda
-// abierto a propósito: no expone datos y sirve para verificar el servicio desde
-// cualquier parte.
-app.use(
-  "/orders/*",
-  cors({
-    origin: (origin, c) => {
-      // El middleware de Hono entrega un Context genérico, así que `c.env` no
-      // viene tipado con nuestro Env y hay que afirmarlo.
-      const configured = (c.env as Env).ALLOWED_ORIGINS ?? "";
-      const allowed = configured
-        .split(",")
-        .map((value: string) => value.trim())
-        .filter(Boolean);
-      return allowed.includes(origin) ? origin : null;
-    },
-    allowMethods: ["POST", "OPTIONS"],
-    allowHeaders: ["Content-Type"],
-    maxAge: 86400,
-  }),
-);
+// Solo la tienda puede llamar a estos endpoints desde un navegador. `/health`
+// queda abierto a propósito: no expone datos y sirve para verificar el
+// servicio desde cualquier parte.
+const storeCors = cors({
+  origin: (origin, c) => {
+    // El middleware de Hono entrega un Context genérico, así que `c.env` no
+    // viene tipado con nuestro Env y hay que afirmarlo.
+    const configured = (c.env as Env).ALLOWED_ORIGINS ?? "";
+    const allowed = configured
+      .split(",")
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+    return allowed.includes(origin) ? origin : null;
+  },
+  allowMethods: ["POST", "OPTIONS"],
+  allowHeaders: ["Content-Type"],
+  maxAge: 86400,
+});
+
+app.use("/orders/*", storeCors);
+app.use("/contact/*", storeCors);
 
 app.route("/health", health);
 app.route("/orders", orders);
+app.route("/contact", contact);
 app.route("/webhooks/whatsapp", whatsapp);
 
 export default {
