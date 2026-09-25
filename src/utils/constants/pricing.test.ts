@@ -64,7 +64,7 @@ describe("computeTotals", () => {
   it("suma varias líneas", () => {
     const totals = computeTotals([
       line({ unitPrice: 45000, quantity: 1 }),
-      line({ productId: "OCA250", unitPrice: 35000, quantity: 2 }),
+      line({ productId: "FLORMORADO250", unitPrice: 35000, quantity: 2 }),
     ]);
 
     expect(totals.subtotal).toBe(115000);
