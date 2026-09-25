@@ -183,10 +183,11 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | `POST` | `/contact` | Guarda y reenvía un mensaje del formulario de contacto al correo del negocio. Solo acepta llamadas desde los orígenes autorizados |
 | `GET`  | `/webhooks/whatsapp` | Verificación del webhook: responde el `hub.challenge` de Meta |
 | `POST` | `/webhooks/whatsapp` | Recibe eventos de Meta. Solo acepta payloads con firma HMAC válida |
-| `GET`  | `/admin/orders` | Lista pedidos (`limit`, `offset`, `q` por número, `status`). Requiere `Authorization: Bearer <ADMIN_PASSWORD>` |
+| `GET`  | `/admin/orders` | Lista pedidos (`limit`, `offset`, `status` y `q`, que busca por número de pedido, documento, celular, correo o nombre completo). Requiere `Authorization: Bearer <ADMIN_PASSWORD>` |
 | `GET`  | `/admin/orders/:id` | Detalle de un pedido: productos, historial de estado y notificaciones |
 | `PATCH` | `/admin/orders/:id/status` | Cambia el estado del pedido, validando la transición según el método de pago |
-| `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` |
+| `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` (`limit`, `offset`, `marketing` = `1` autorizadas o `0` de baja, y `q`, que busca por nombre completo, celular, correo o documento) |
+| `GET`  | `/admin/customers/:id` | Detalle de un cliente: sus datos y su historial de pedidos con lo que respondió en la casilla de novedades (prueba del consentimiento) |
 | `PATCH` | `/admin/customers/:id/opt-out` | Da de baja las novedades por WhatsApp de un cliente (Ley 1581) |
 | `GET`  | `/admin/contact-messages` | Lista los mensajes del formulario de contacto |
 | `PATCH` | `/admin/contact-messages/:id/status` | Marca un mensaje como `atendido` o `nuevo` |
