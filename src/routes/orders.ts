@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 
+import { clientIp, tooManyRequests, withinLimit } from "@/middleware/rateLimit";
 import { orderRequestSchema } from "@/schemas/order";
 import {
   CatalogShapeError,
@@ -17,6 +18,7 @@ import {
 } from "@/services/orders";
 import { breBInstructions } from "@/services/payments";
 import { sendEmail } from "@/services/resend";
+import { verifyTurnstile } from "@/services/turnstile";
 import {
   confirmationHtml,
   confirmationSubject,
@@ -69,6 +71,27 @@ orders.post("/", async (c) => {
   // se creó en lugar de crear uno nuevo.
   const existing = await findByIdempotencyKey(c.env, request.idempotencyKey);
   if (existing) return c.json(alreadyCreated(c.env, existing));
+
+  // Turnstile va después de la búsqueda anterior: un reintento de un pedido ya
+  // creado no necesita volver a demostrar nada, y su token ya se gastó.
+  const human = await verifyTurnstile(c.env, {
+    token: c.req.header("X-Turnstile-Token"),
+    ip: clientIp(c),
+    idempotencyKey: request.idempotencyKey,
+    action: "checkout",
+  });
+  if (!human.ok) {
+    return c.json({ error: "verificacion_fallida", motivo: human.reason }, 403);
+  }
+
+  // Cada pedido manda un correo a la dirección que escribió el cliente. Sin
+  // este tope, el checkout serviría para llenar de correos el buzón de un
+  // tercero a nombre de Flormorado, aunque cada petición cambie de IP.
+  const emailAllowed = await withinLimit(
+    c.env.ORDER_EMAIL_LIMITER,
+    `email:${request.contact.email.toLowerCase()}`,
+  );
+  if (!emailAllowed) return tooManyRequests(c);
 
   let priced: PricedOrder;
   let pricesVerified = true;

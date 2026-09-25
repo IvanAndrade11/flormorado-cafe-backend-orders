@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Avisos de seguridad y actualizaciones menores de las dependencias, agrupadas
+  # en un solo PR semanal para no llenar la bandeja.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ":package:"
+
+  # Las acciones del CI también se actualizan.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ":package:"

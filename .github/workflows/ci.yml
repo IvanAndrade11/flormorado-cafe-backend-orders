@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
 
+# El token de Actions solo necesita leer el código: los despliegues usan sus
+# propios secretos, así que un paso comprometido no puede escribir en el repo.
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
