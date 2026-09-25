@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import { verifyWebhookSignature } from "@/services/whatsapp";
 import type { Env } from "@/types/env";
+import { safeEqual } from "@/utils/security";
 
 export const whatsapp = new Hono<{ Bindings: Env }>();
 
@@ -9,15 +10,19 @@ export const whatsapp = new Hono<{ Bindings: Env }>();
 // llamada o el verify token en el panel de la app. Si no respondemos el
 // hub.challenge tal cual lo mandó, Meta nunca marca el webhook como
 // verificado y no deja avanzar el registro del número.
-whatsapp.get("/", (c) => {
+whatsapp.get("/", async (c) => {
   const mode = c.req.query("hub.mode");
   const token = c.req.query("hub.verify_token");
   const challenge = c.req.query("hub.challenge");
 
+  // Sin `WHATSAPP_VERIFY_TOKEN` configurado no hay nada válido contra qué
+  // comparar; se rechaza en vez de aceptar un token vacío.
   if (
     mode === "subscribe" &&
     !!challenge &&
-    token === c.env.WHATSAPP_VERIFY_TOKEN
+    !!token &&
+    !!c.env.WHATSAPP_VERIFY_TOKEN &&
+    (await safeEqual(token, c.env.WHATSAPP_VERIFY_TOKEN))
   ) {
     return c.text(challenge, 200);
   }

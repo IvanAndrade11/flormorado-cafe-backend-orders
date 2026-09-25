@@ -27,3 +27,46 @@ migrations_dir = "migrations"
 # como `0 8-20 * * *` se ejecutaría de 3am a 3pm hora Colombia.
 [triggers]
 crons = ["0 13-23,0-1 * * *"]
+
+# Límites de tasa (FMC-0021). Cloudflare los cuenta por ubicación y de forma
+# eventualmente consistente, así que frenan el abuso pero no son contabilidad
+# exacta; por eso el código falla abierto si el binding no responde. Los
+# `namespace_id` solo tienen que ser únicos dentro de la cuenta. `period` solo
+# admite 10 o 60 segundos.
+#
+# Las cifras son generosas a propósito: muchos clientes comparten IP (datos
+# móviles, oficinas) y un tope apretado bloquearía compras legítimas.
+
+# Pedidos por IP: un cliente real hace uno, quizá dos por reintentos.
+[[ratelimits]]
+name = "ORDER_IP_LIMITER"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+# Pedidos por correo del cliente: evita usar el checkout para llenar de
+# confirmaciones el buzón de un tercero, aunque cada petición cambie de IP.
+[[ratelimits]]
+name = "ORDER_EMAIL_LIMITER"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 3
+  period = 60
+
+# Formulario de contacto por IP: cada mensaje envía un correo al negocio.
+[[ratelimits]]
+name = "CONTACT_IP_LIMITER"
+namespace_id = "1003"
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
+# Panel por IP, antes de verificar la clave: pone techo a la fuerza bruta.
+# Una persona usando el panel hace muchas menos de 30 llamadas por minuto.
+[[ratelimits]]
+name = "ADMIN_IP_LIMITER"
+namespace_id = "1004"
+  [ratelimits.simple]
+  limit = 30
+  period = 60

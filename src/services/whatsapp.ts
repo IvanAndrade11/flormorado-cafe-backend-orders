@@ -1,22 +1,11 @@
+import { safeEqual } from "@/utils/security";
+
 const encoder = new TextEncoder();
 
 const toHex = (buffer: ArrayBuffer) =>
   [...new Uint8Array(buffer)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-
-// Comparación en tiempo constante: sin esto, un atacante podría deducir la
-// firma correcta byte a byte midiendo cuánto tarda cada intento.
-const timingSafeEqual = (a: string, b: string) => {
-  if (a.length !== b.length) return false;
-
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-
-  return mismatch === 0;
-};
 
 // Meta firma cada POST del webhook con HMAC-SHA256 usando el secreto de la
 // app como llave (encabezado X-Hub-Signature-256). Sin verificar esto,
@@ -39,5 +28,5 @@ export const verifyWebhookSignature = async (
   const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
   const expected = toHex(mac);
 
-  return timingSafeEqual(expected, signatureHeader.slice("sha256=".length));
+  return safeEqual(expected, signatureHeader.slice("sha256=".length));
 };

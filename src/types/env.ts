@@ -29,4 +29,15 @@ export interface Env {
   // `Authorization: Bearer <clave>` en cada llamada a /admin/*; nunca viaja en
   // el bundle público.
   ADMIN_PASSWORD: string;
+  // Secreto del widget de Turnstile (Cloudflare → Turnstile). Mientras no
+  // exista, el backend no exige el token: así se puede desplegar antes que el
+  // frontend, que se publica a mano, sin rechazar los pedidos de la tienda.
+  TURNSTILE_SECRET_KEY?: string;
+  // Limitadores de `wrangler.toml` (`[[ratelimits]]`). Son opcionales en el
+  // tipo porque en pruebas y en `wrangler dev` sin configurar no existen, y el
+  // servicio debe seguir funcionando sin ellos.
+  ORDER_IP_LIMITER?: RateLimit;
+  ORDER_EMAIL_LIMITER?: RateLimit;
+  CONTACT_IP_LIMITER?: RateLimit;
+  ADMIN_IP_LIMITER?: RateLimit;
 }

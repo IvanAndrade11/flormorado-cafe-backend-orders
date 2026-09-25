@@ -266,6 +266,9 @@ export interface OrderListItem {
   total: number;
   payment_method: string;
   status: string;
+  // Para que el panel marque en la lista los pedidos cuya notificación falló.
+  email_status: string;
+  whatsapp_status: string;
 }
 
 export interface ListOrdersArgs {
@@ -299,7 +302,8 @@ export const listOrders = async (
 
   const [rows, countRow] = await Promise.all([
     env.DB.prepare(
-      `SELECT id, created_at, customer_name, customer_surname, city, total, payment_method, status
+      `SELECT id, created_at, customer_name, customer_surname, city, total, payment_method, status,
+              email_status, whatsapp_status
        FROM orders
        WHERE ${ORDER_FILTERS}
        ORDER BY created_at DESC

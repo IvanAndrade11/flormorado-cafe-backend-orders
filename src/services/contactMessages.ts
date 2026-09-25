@@ -27,13 +27,13 @@ export const findRecentDuplicate = (
   const since = new Date(now.getTime() - DUPLICATE_WINDOW_MS).toISOString();
 
   return env.DB.prepare(
-    `SELECT id FROM contact_messages
+    `SELECT id, email_status FROM contact_messages
      WHERE email = ?1 AND message = ?2 AND created_at >= ?3
      ORDER BY created_at DESC
      LIMIT 1`,
   )
     .bind(request.email, request.message, since)
-    .first<{ id: number }>();
+    .first<{ id: number; email_status: string }>();
 };
 
 export const persistContactMessage = async (
