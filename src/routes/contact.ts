@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 
 import { contactRequestSchema } from "@/schemas/contact";
+import {
+  findRecentDuplicate,
+  persistContactMessage,
+  recordContactMessageEmailStatus,
+} from "@/services/contactMessages";
 import { sendEmail } from "@/services/resend";
 import {
   contactNotificationHtml,
@@ -31,12 +36,17 @@ contact.post("/", async (c) => {
   }
 
   const request = parsed.data;
+  const now = new Date();
 
-  // A diferencia de un pedido, este mensaje no se guarda en ningún lado: el
-  // correo es el único registro que queda. Por eso, a diferencia de
-  // routes/orders.ts, se espera el resultado de Resend antes de responder —
-  // si falla hay que devolver un error para que el frontend reintente, en vez
-  // de un 201 que dejaría el mensaje perdido sin que nadie lo note.
+  // Se guarda antes de notificar, igual que un pedido (FMC-0020): así el
+  // panel puede mostrar el mensaje y hacerle seguimiento aunque Resend falle.
+  // El frontend reintenta un 502, así que un reintento reutiliza el mensaje
+  // reciente con el mismo correo y texto en vez de duplicarlo.
+  const duplicate = await findRecentDuplicate(c.env, request, now);
+  const id = duplicate
+    ? duplicate.id
+    : await persistContactMessage(c.env, request, now);
+
   const sent = await sendEmail({
     apiKey: c.env.RESEND_API_KEY,
     from: c.env.ORDERS_EMAIL_FROM,
@@ -46,7 +56,16 @@ contact.post("/", async (c) => {
     html: contactNotificationHtml(request),
   });
 
+  await recordContactMessageEmailStatus(
+    c.env,
+    id,
+    sent.ok ? "enviado" : `fallo: ${sent.error}`,
+  );
+
   if (!sent.ok) {
+    // El mensaje ya quedó guardado, pero seguimos devolviendo un error para
+    // que el frontend reintente: si Resend está caído, el negocio no debería
+    // depender solo de mirar el panel para enterarse del contacto.
     return c.json({ error: "no_se_pudo_enviar" }, 502);
   }
 

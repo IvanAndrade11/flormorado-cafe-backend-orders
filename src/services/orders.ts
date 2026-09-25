@@ -3,7 +3,9 @@ import type { OrderRequest } from "@/schemas/order";
 import type { Env } from "@/types/env";
 import {
   computeTotals,
+  nextStatuses,
   parseCopPrice,
+  PAYMENT_METHODS,
   type PricedLine,
   type Totals,
 } from "@/utils/constants";
@@ -252,3 +254,175 @@ export const findByIdempotencyKey = (env: Env, key: string) =>
       prices_verified: number;
       payment_method: string;
     }>();
+
+// --- Panel de control (fase 4) ---------------------------------------------
+
+export interface OrderListItem {
+  id: string;
+  created_at: string;
+  customer_name: string;
+  customer_surname: string;
+  city: string;
+  total: number;
+  payment_method: string;
+  status: string;
+}
+
+export interface ListOrdersArgs {
+  limit: number;
+  offset: number;
+  q?: string;
+  status?: string;
+}
+
+// `q` busca por número de pedido y también por los datos con los que un cliente
+// suele preguntar: documento, celular, correo o nombre completo.
+const ORDER_FILTERS = `(?1 IS NULL
+    OR id LIKE ?1
+    OR document_number LIKE ?1
+    OR phone LIKE ?1
+    OR email LIKE ?1
+    OR (customer_name || ' ' || customer_surname) LIKE ?1)
+  AND (?2 IS NULL OR status = ?2)`;
+
+/**
+ * `q` y `status` viajan siempre como parámetros, presentes o no: es más
+ * simple que armar el `WHERE` a mano según qué filtros llegaron, y evita
+ * cualquier duda sobre si un valor termina interpolado en el SQL.
+ */
+export const listOrders = async (
+  env: Env,
+  args: ListOrdersArgs,
+): Promise<{ orders: OrderListItem[]; total: number }> => {
+  const q = args.q ? `%${args.q}%` : null;
+  const status = args.status ?? null;
+
+  const [rows, countRow] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, created_at, customer_name, customer_surname, city, total, payment_method, status
+       FROM orders
+       WHERE ${ORDER_FILTERS}
+       ORDER BY created_at DESC
+       LIMIT ?3 OFFSET ?4`,
+    )
+      .bind(q, status, args.limit, args.offset)
+      .all<OrderListItem>(),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM orders WHERE ${ORDER_FILTERS}`)
+      .bind(q, status)
+      .first<{ n: number }>(),
+  ]);
+
+  return { orders: rows.results, total: countRow?.n ?? 0 };
+};
+
+export interface OrderRow {
+  id: string;
+  created_at: string;
+  status: string;
+  customer_name: string;
+  customer_surname: string;
+  email: string;
+  phone: string;
+  whatsapp_opt_in: number;
+  notify_whatsapp: number;
+  city: string;
+  neighborhood: string;
+  address: string;
+  additional_info: string | null;
+  document_type: string;
+  document_number: string;
+  payment_method: string;
+  bre_key: string | null;
+  subtotal: number;
+  shipping: number;
+  total: number;
+  email_status: string;
+  whatsapp_status: string;
+  prices_verified: number;
+  customer_id: number | null;
+  marketing_consent_version: string | null;
+}
+
+export interface OrderItemRow {
+  id: number;
+  order_id: string;
+  product_id: string;
+  name: string;
+  brand: string | null;
+  grinding: string | null;
+  size: string | null;
+  unit_price: number;
+  quantity: number;
+}
+
+export interface OrderStatusHistoryRow {
+  id: number;
+  order_id: string;
+  from_status: string;
+  to_status: string;
+  changed_at: string;
+}
+
+export const getOrderDetail = async (env: Env, id: string) => {
+  const order = await env.DB.prepare("SELECT * FROM orders WHERE id = ?1")
+    .bind(id)
+    .first<OrderRow>();
+
+  if (!order) return null;
+
+  const [items, history] = await Promise.all([
+    env.DB.prepare("SELECT * FROM order_items WHERE order_id = ?1 ORDER BY id")
+      .bind(id)
+      .all<OrderItemRow>(),
+    env.DB.prepare(
+      "SELECT * FROM order_status_history WHERE order_id = ?1 ORDER BY changed_at",
+    )
+      .bind(id)
+      .all<OrderStatusHistoryRow>(),
+  ]);
+
+  return { order, items: items.results, history: history.results };
+};
+
+export type StatusUpdateFailure =
+  | { code: "pedido_no_encontrado" }
+  | { code: "transicion_invalida"; permitidos: string[] };
+
+/**
+ * Valida la transición contra el flujo del método de pago del pedido —nunca
+ * la que mande el panel— y deja rastro en `order_status_history` en el mismo
+ * lote que el cambio de estado.
+ */
+export const updateOrderStatus = async (
+  env: Env,
+  id: string,
+  to: string,
+  now: Date,
+): Promise<StatusUpdateFailure | { ok: true }> => {
+  const current = await env.DB.prepare(
+    "SELECT status, payment_method FROM orders WHERE id = ?1",
+  )
+    .bind(id)
+    .first<{ status: string; payment_method: string }>();
+
+  if (!current) return { code: "pedido_no_encontrado" };
+
+  const allowed = nextStatuses(
+    current.payment_method as (typeof PAYMENT_METHODS)[number],
+    current.status,
+  );
+  if (!allowed.includes(to)) {
+    return { code: "transicion_invalida", permitidos: allowed };
+  }
+
+  const timestamp = now.toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE orders SET status = ?2 WHERE id = ?1").bind(id, to),
+    env.DB.prepare(
+      `INSERT INTO order_status_history (order_id, from_status, to_status, changed_at)
+       VALUES (?1,?2,?3,?4)`,
+    ).bind(id, current.status, to, timestamp),
+  ]);
+
+  return { ok: true };
+};
