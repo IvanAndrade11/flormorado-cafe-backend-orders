@@ -275,6 +275,16 @@ export interface ListOrdersArgs {
   status?: string;
 }
 
+// `q` busca por número de pedido y también por los datos con los que un cliente
+// suele preguntar: documento, celular, correo o nombre completo.
+const ORDER_FILTERS = `(?1 IS NULL
+    OR id LIKE ?1
+    OR document_number LIKE ?1
+    OR phone LIKE ?1
+    OR email LIKE ?1
+    OR (customer_name || ' ' || customer_surname) LIKE ?1)
+  AND (?2 IS NULL OR status = ?2)`;
+
 /**
  * `q` y `status` viajan siempre como parámetros, presentes o no: es más
  * simple que armar el `WHERE` a mano según qué filtros llegaron, y evita
@@ -291,18 +301,13 @@ export const listOrders = async (
     env.DB.prepare(
       `SELECT id, created_at, customer_name, customer_surname, city, total, payment_method, status
        FROM orders
-       WHERE (?1 IS NULL OR id LIKE ?1)
-         AND (?2 IS NULL OR status = ?2)
+       WHERE ${ORDER_FILTERS}
        ORDER BY created_at DESC
        LIMIT ?3 OFFSET ?4`,
     )
       .bind(q, status, args.limit, args.offset)
       .all<OrderListItem>(),
-    env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM orders
-       WHERE (?1 IS NULL OR id LIKE ?1)
-         AND (?2 IS NULL OR status = ?2)`,
-    )
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM orders WHERE ${ORDER_FILTERS}`)
       .bind(q, status)
       .first<{ n: number }>(),
   ]);
