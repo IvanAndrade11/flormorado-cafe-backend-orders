@@ -7,13 +7,21 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Los saltos de versión mayor pueden romper el build o el lint y no deben
+    # llegar como un PR más de la semana: se prueban a mano, uno por uno, en su
+    # propio ticket. Aquí solo entran menores y parches.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
     commit-message:
       prefix: ":package:"
 
-  # Las acciones del CI también se actualizan.
+  # Las acciones del CI también se actualizan, mayores incluidos: son cambios
+  # pequeños, el propio CI los prueba, y quedarse atrás rompe el pipeline
+  # cuando GitHub retira una versión de Node.
   - package-ecosystem: github-actions
     directory: /
     schedule:
