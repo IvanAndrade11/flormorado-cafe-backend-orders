@@ -1,11 +1,19 @@
 version: 2
 updates:
-  # Avisos de seguridad y actualizaciones menores de las dependencias, agrupadas
-  # en un solo PR semanal para no llenar la bandeja.
+  # Actualizaciones menores y parches de las dependencias, agrupadas en un solo
+  # PR mensual. Dependabot no acumula en un PR abierto: cuando el grupo cambia,
+  # cierra el anterior y abre uno nuevo con todo incluido. Con frecuencia
+  # semanal eso dejaba un PR cerrado por semana; mensual lo reduce a uno al mes.
+  # Las alertas de seguridad de GitHub no dependen de este calendario.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    # Espera 7 días antes de proponer una versión recién publicada, para que el
+    # grupo cambie menos entre corridas. No retrasa las actualizaciones de
+    # seguridad.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     # Los saltos de versión mayor pueden romper el build o el lint y no deben
     # llegar como un PR más de la semana: se prueban a mano, uno por uno, en su
