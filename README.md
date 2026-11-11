@@ -109,7 +109,7 @@ La tabla `customers` guarda datos personales con fines comerciales, así que apl
 - **Prueba:** cada pedido guarda si el cliente marcó la casilla (`whatsapp_opt_in`) y qué versión del texto vio (`marketing_consent_version`).
 - **Lo derivable no se guarda:** número de pedidos, total comprado y fechas de compra se calculan desde `orders`.
 - **Novedades por WhatsApp, a mano (`FMC-0024`).** Meta no aprobó la verificación del negocio, así que no hay envío automático por la API. La casilla de novedades y el consentimiento siguen igual, pero las novedades las manda el negocio desde su celular con la app de WhatsApp, usando la lista de clientes del panel (filtro «Autorizadas»). Por eso el consentimiento sigue versionado y revocable desde el panel.
-- **Columnas que ya nada usa:** `orders.notify_whatsapp` (la casilla «confirmación también por WhatsApp», retirada) y `orders.whatsapp_status` (el estado del envío por la API). Siguen en la base porque quitar una columna no es aditivo; se borran en una migración posterior si hace falta.
+- **Columnas que ya nada usa:** `orders.bre_key` (la llave BRE-B que escribía el cliente, que el checkout dejó de pedir en `FMC-0025`; los pedidos anteriores la conservan), `orders.notify_whatsapp` (la casilla «confirmación también por WhatsApp», retirada) y `orders.whatsapp_status` (el estado del envío por la API). Siguen en la base porque quitar una columna no es aditivo; se borran en una migración posterior si hace falta.
 
 ---
 
