@@ -13,6 +13,8 @@ export interface CustomerListItem {
   marketing_updated_at: string;
   created_at: string;
   updated_at: string;
+  /** Cuándo se atendió una solicitud de supresión. NULL = ficha vigente. */
+  suppressed_at: string | null;
   pedidos: number;
   total_comprado: number;
 }
@@ -109,6 +111,61 @@ export const getCustomerDetail = async (env: Env, id: number) => {
     .all<CustomerOrderRow>();
 
   return { customer, history: history.results };
+};
+
+/** Lo que queda en una ficha suprimida: no es un dato, es la marca de que ahí hubo uno. */
+const SUPRIMIDO = "(suprimido)";
+
+export type SuppressOutcome =
+  | { code: "cliente_no_encontrado" }
+  | { code: "ya_suprimido" }
+  | { code: "suprimido"; mensajesBorrados: number };
+
+/**
+ * Supresión del artículo 8 de la Ley 1581. No borra todo, y eso es deliberado:
+ * los pedidos son soporte contable y la ley permite negar la supresión cuando
+ * hay un deber legal de conservar. Se anonimiza la ficha, se borran los
+ * mensajes de contacto —donde no existe ese deber— y queda la constancia de
+ * que la solicitud se atendió. Ver `migrations/0009`.
+ */
+export const suppressCustomer = async (
+  env: Env,
+  id: number,
+  now: Date,
+): Promise<SuppressOutcome> => {
+  const customer = await env.DB.prepare(
+    "SELECT id, email, suppressed_at FROM customers WHERE id = ?1",
+  )
+    .bind(id)
+    .first<{ id: number; email: string; suppressed_at: string | null }>();
+
+  if (!customer) return { code: "cliente_no_encontrado" };
+  // Repetir la supresión no debe volver a escribir: `suppressed_at` es la fecha
+  // en que se atendió la solicitud, no la del último clic en el botón.
+  if (customer.suppressed_at) return { code: "ya_suprimido" };
+
+  const timestamp = now.toISOString();
+  const [, mensajes] = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE customers
+          SET name = ?2, surname = ?2, email = ?2,
+              document_type = ?2, document_number = ?2, city = ?2,
+              phone = ?3,
+              whatsapp_marketing = 0,
+              marketing_updated_at = CASE
+                WHEN whatsapp_marketing = 1 THEN ?4
+                ELSE marketing_updated_at
+              END,
+              suppressed_at = ?4,
+              updated_at = ?4
+        WHERE id = ?1`,
+    ).bind(id, SUPRIMIDO, `suprimido-${id}`, timestamp),
+    env.DB.prepare("DELETE FROM contact_messages WHERE email = ?1").bind(
+      customer.email,
+    ),
+  ]);
+
+  return { code: "suprimido", mensajesBorrados: mensajes.meta.changes };
 };
 
 /** Revocación exigida por la Ley 1581: en cualquier momento, no solo en el próximo pedido. */

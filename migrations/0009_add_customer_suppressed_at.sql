@@ -1,0 +1,26 @@
+-- Migration number: 0009 	 2026-11-11T00:00:00.000Z
+-- Supresión de datos a petición del titular (FMC-0028, fase 9).
+--
+-- La Ley 1581 obliga a resolver una solicitud de supresión en quince días
+-- hábiles. Hasta ahora habría que hacerlo a mano contra la base.
+--
+-- Qué se suprime y qué no sale del esquema y de la ley, no de una preferencia:
+--
+--   · La ficha del cliente se anonimiza **en su sitio**, con valores centinela,
+--     en vez de borrarse. `orders.customer_id` referencia a `customers`, y
+--     todas las columnas personales de la tabla son NOT NULL con `phone`
+--     además UNIQUE: borrar la fila dejaría pedidos apuntando al vacío, y
+--     ponerlas en NULL exigiría reconstruir la tabla, que no es aditivo.
+--   · Los pedidos **no se tocan**: son soporte contable, y la ley permite negar
+--     la supresión cuando existe un deber legal de conservar.
+--   · Los mensajes de contacto **sí se borran**: ahí no hay tal deber.
+--
+-- `suppressed_at` es la constancia de que la solicitud se atendió —que es lo
+-- que hay que poder demostrar— sin conservar nada de lo que se suprimió.
+--
+-- Efecto secundario buscado: como la supresión cambia el `phone`, que es la
+-- llave del cliente, si esa persona vuelve a comprar el upsert de
+-- `persistOrder` le crea una ficha nueva. Es lo correcto: compra nueva,
+-- autorización nueva.
+
+ALTER TABLE customers ADD COLUMN suppressed_at TEXT;
