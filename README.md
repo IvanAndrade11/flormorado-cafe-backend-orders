@@ -50,7 +50,7 @@ El plan completo, con el avance por paso, vive en el [plan de trabajo](https://c
 | 3    | Correo al cliente y resumen al negocio         | ✅ Falta prueba real  |
 | 4    | Panel de control de pedidos (`FMC-0020`)       | ✅ Endpoints listos — la interfaz vive en el frontend |
 | 5    | Conexión con el checkout del frontend          | ✅ PR en revisión     |
-| 6    | Clientes y pago con BRE-B (`FMC-0017`)         | 🔨 En curso           |
+| 6    | Clientes y pago con BRE-B (`FMC-0017`)         | ✅ Llave y QR definitivos (`FMC-0026`) — falta prueba real |
 | 7    | Canal de WhatsApp por la API de Meta (`FMC-0024`) | 🚫 Descartado — Meta no aprobó la verificación del negocio |
 | 8    | Endurecimiento: límite de tasa, Turnstile y alertas (`FMC-0021`) | 🔨 En curso |
 
