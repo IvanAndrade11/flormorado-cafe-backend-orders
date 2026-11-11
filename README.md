@@ -209,6 +209,7 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` (`limit`, `offset`, `marketing` = `1` autorizadas o `0` de baja, y `q`, que busca por nombre completo, celular, correo o documento) |
 | `GET`  | `/admin/customers/:id` | Detalle de un cliente: sus datos y su historial de pedidos con lo que respondió en la casilla de novedades (prueba del consentimiento) |
 | `PATCH` | `/admin/customers/:id/opt-out` | Da de baja las novedades de un cliente (Ley 1581) |
+| `PATCH` | `/admin/customers/:id/suppress` | Atiende una solicitud de supresión: anonimiza la ficha y borra los mensajes de contacto. Los pedidos se conservan (soporte contable) |
 | `GET`  | `/admin/contact-messages` | Lista los mensajes del formulario de contacto |
 | `PATCH` | `/admin/contact-messages/:id/status` | Marca un mensaje como `atendido` o `nuevo` |
 
