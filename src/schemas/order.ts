@@ -30,6 +30,12 @@ const contact = z.object({
   // mezclar y el frontend a mano; un checkout anterior no la envía y no puede
   // quedar rechazando pedidos mientras se actualiza.
   marketingConsentVersion: z.string().trim().min(1).max(40).optional(),
+  // Qué versión de la política de tratamiento de datos estaba publicada cuando
+  // el cliente hizo el pedido. La aceptación es implícita —el Decreto 1377
+  // (art. 7) admite la conducta inequívoca de pulsar «Realizar pedido» con el
+  // aviso a la vista—, así que esto es lo único que queda como prueba de qué
+  // se le informó. Opcional por la misma razón que la línea de arriba.
+  privacyPolicyVersion: z.string().trim().min(1).max(40).optional(),
 });
 
 const delivery = z.object({

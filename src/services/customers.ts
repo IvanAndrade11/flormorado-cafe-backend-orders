@@ -75,6 +75,7 @@ export interface CustomerOrderRow {
   total: number;
   whatsapp_opt_in: number;
   marketing_consent_version: string | null;
+  privacy_policy_version: string | null;
 }
 
 /**
@@ -99,7 +100,7 @@ export const getCustomerDetail = async (env: Env, id: number) => {
 
   const history = await env.DB.prepare(
     `SELECT id, created_at, status, payment_method, total,
-            whatsapp_opt_in, marketing_consent_version
+            whatsapp_opt_in, marketing_consent_version, privacy_policy_version
      FROM orders
      WHERE customer_id = ?1
      ORDER BY created_at DESC`,
