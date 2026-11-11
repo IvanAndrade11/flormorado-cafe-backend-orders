@@ -4,6 +4,7 @@ import {
   getCustomerDetail,
   listCustomers,
   optOutCustomer,
+  suppressCustomer,
 } from "@/services/customers";
 import type { Env } from "@/types/env";
 
@@ -51,4 +52,24 @@ adminCustomers.patch("/:id/opt-out", async (c) => {
   if (!updated) return c.json({ error: "cliente_no_encontrado" }, 404);
 
   return c.json({ ok: true });
+});
+
+// `PATCH` y no `DELETE` por dos razones: `adminCors` solo habilita GET y PATCH,
+// y lo que ocurre no es un borrado sino una anonimización — los pedidos se
+// conservan por el deber contable. Ver `suppressCustomer`.
+adminCustomers.patch("/:id/suppress", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) return c.json({ error: "id_invalido" }, 400);
+
+  const outcome = await suppressCustomer(c.env, id, new Date());
+  if (outcome.code === "cliente_no_encontrado") {
+    return c.json({ error: "cliente_no_encontrado" }, 404);
+  }
+
+  return c.json({
+    ok: true,
+    yaEstaba: outcome.code === "ya_suprimido",
+    mensajesBorrados:
+      outcome.code === "suprimido" ? outcome.mensajesBorrados : 0,
+  });
 });

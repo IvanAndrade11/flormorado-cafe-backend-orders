@@ -42,8 +42,8 @@ export const persistContactMessage = async (
   now: Date,
 ): Promise<number> => {
   const result = await env.DB.prepare(
-    `INSERT INTO contact_messages (created_at, name, email, phone, subject, message)
-     VALUES (?1,?2,?3,?4,?5,?6)`,
+    `INSERT INTO contact_messages (created_at, name, email, phone, subject, message, privacy_policy_version)
+     VALUES (?1,?2,?3,?4,?5,?6,?7)`,
   )
     .bind(
       now.toISOString(),
@@ -52,6 +52,7 @@ export const persistContactMessage = async (
       request.phone ?? null,
       request.subject,
       request.message,
+      request.privacyPolicyVersion ?? null,
     )
     .run();
 

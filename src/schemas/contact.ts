@@ -40,6 +40,10 @@ export const contactRequestSchema = z.object({
     .optional(),
   subject: z.enum(CONTACT_SUBJECTS),
   message: z.string().trim().min(10).max(1000),
+  // El formulario también recoge datos personales, así que deja la misma
+  // prueba que un pedido: qué versión de la política estaba publicada.
+  // Opcional porque la tienda se publica a mano, después del backend.
+  privacyPolicyVersion: z.string().trim().min(1).max(40).optional(),
 });
 
 export type ContactRequest = z.infer<typeof contactRequestSchema>;
