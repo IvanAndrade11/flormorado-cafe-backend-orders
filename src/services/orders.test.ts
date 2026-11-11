@@ -39,7 +39,6 @@ const request = (overrides: Partial<OrderRequest> = {}): OrderRequest =>
       surname: "Restrepo",
       email: "maria@example.com",
       phone: "3001234567",
-      whatsappOptIn: false,
     },
     delivery: {
       city: "chia",
@@ -50,7 +49,6 @@ const request = (overrides: Partial<OrderRequest> = {}): OrderRequest =>
       method: "cash_on_delivery",
       documentType: "CC",
       documentNumber: "1012345678",
-      notifyByWhatsApp: false,
     },
     items: [
       {

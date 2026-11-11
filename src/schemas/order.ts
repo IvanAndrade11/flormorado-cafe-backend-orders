@@ -20,12 +20,6 @@ const contact = z.object({
   phone: z
     .string()
     .regex(/^3[0-9]{9}$/, "celular colombiano de 10 dígitos, ej: 3001234567"),
-  whatsappOptIn: z.boolean().default(false),
-  // Qué versión del texto de la casilla de novedades vio el cliente: es la
-  // prueba de lo que aceptó. Opcional porque el backend se despliega solo al
-  // mezclar y el frontend a mano; un checkout anterior no la envía y no puede
-  // quedar rechazando pedidos mientras se actualiza.
-  marketingConsentVersion: z.string().trim().min(1).max(40).optional(),
 });
 
 const delivery = z.object({
@@ -38,7 +32,6 @@ const delivery = z.object({
 const identity = {
   documentType: z.enum(DOCUMENT_TYPES),
   documentNumber: z.string().regex(/^[0-9]{5,15}$/, "documento inválido"),
-  notifyByWhatsApp: z.boolean().default(false),
 };
 
 // Union discriminada en vez de un breKey opcional suelto: así la llave BRE-B es

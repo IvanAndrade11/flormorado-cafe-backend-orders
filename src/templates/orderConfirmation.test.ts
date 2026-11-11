@@ -27,7 +27,6 @@ const request = (payment: OrderRequest["payment"]): OrderRequest => ({
     surname: "Restrepo",
     email: "maria@example.com",
     phone: "3001234567",
-    whatsappOptIn: false,
   },
   delivery: {
     city: "chia",
@@ -42,7 +41,6 @@ const request = (payment: OrderRequest["payment"]): OrderRequest => ({
 const identity = {
   documentType: "CC" as const,
   documentNumber: "1012345678",
-  notifyByWhatsApp: false,
 };
 
 describe("confirmationHtml", () => {

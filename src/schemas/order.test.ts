@@ -9,7 +9,6 @@ const valid = {
     surname: "Restrepo",
     email: "maria@example.com",
     phone: "3001234567",
-    whatsappOptIn: true,
   },
   delivery: {
     city: "chia",
@@ -20,7 +19,6 @@ const valid = {
     method: "cash_on_delivery",
     documentType: "CC",
     documentNumber: "1012345678",
-    notifyByWhatsApp: false,
   },
   items: [
     {
@@ -35,22 +33,21 @@ const valid = {
 
 describe("orderRequestSchema", () => {
   // El backend se despliega solo al mezclar y el frontend a mano: un checkout
-  // que todavía no envía la versión del consentimiento no puede quedar
+  // anterior que todavía envía los campos de WhatsApp no puede quedar
   // rechazando pedidos.
-  it("acepta un pedido sin versión del consentimiento", () => {
-    const result = orderRequestSchema.safeParse(valid);
-
-    expect(result.success).toBe(true);
-    expect(result.data?.contact.marketingConsentVersion).toBeUndefined();
-  });
-
-  it("conserva la versión del consentimiento cuando llega", () => {
+  it("ignora los campos de WhatsApp que un checkout anterior aún envía", () => {
     const result = orderRequestSchema.safeParse({
       ...valid,
-      contact: { ...valid.contact, marketingConsentVersion: "2026-09-16" },
+      contact: {
+        ...valid.contact,
+        whatsappOptIn: true,
+        marketingConsentVersion: "2026-09-16",
+      },
+      payment: { ...valid.payment, notifyByWhatsApp: true },
     });
 
-    expect(result.data?.contact.marketingConsentVersion).toBe("2026-09-16");
+    expect(result.success).toBe(true);
+    expect(result.data?.contact).not.toHaveProperty("whatsappOptIn");
   });
 
   it("exige la llave del cliente cuando paga por BRE-B", () => {

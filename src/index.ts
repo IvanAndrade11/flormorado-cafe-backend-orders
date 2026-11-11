@@ -12,7 +12,6 @@ import {
   contact,
   health,
   orders,
-  whatsapp,
 } from "@/routes";
 import { sendFailureAlerts } from "@/services/alerts";
 import { sendPendingDigest } from "@/services/digest";
@@ -93,7 +92,6 @@ app.use("/admin/*", adminAuth);
 app.route("/health", health);
 app.route("/orders", orders);
 app.route("/contact", contact);
-app.route("/webhooks/whatsapp", whatsapp);
 app.route("/admin/orders", adminOrders);
 app.route("/admin/customers", adminCustomers);
 app.route("/admin/contact-messages", adminContactMessages);
