@@ -143,14 +143,14 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
   const { contact, delivery, payment } = request;
   const timestamp = now.toISOString();
 
-  // Los datos del cliente los define el último pedido. `marketing_updated_at`
-  // es NOT NULL y quedó de cuando se pedía consentimiento para novedades por
-  // WhatsApp; se llena solo al crear la fila y ya nada lo lee.
+  // Los datos del cliente los define el último pedido, consentimiento incluido:
+  // sin la casilla marcada, deja de recibir novedades. La fecha del
+  // consentimiento solo se mueve cuando el valor cambia.
   const upsertCustomer = env.DB.prepare(
     `INSERT INTO customers (
        phone, name, surname, email, document_type, document_number, city,
-       marketing_updated_at, created_at, updated_at
-     ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?8,?8)
+       whatsapp_marketing, marketing_updated_at, created_at, updated_at
+     ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9,?9)
      ON CONFLICT (phone) DO UPDATE SET
        name = excluded.name,
        surname = excluded.surname,
@@ -158,6 +158,12 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
        document_type = excluded.document_type,
        document_number = excluded.document_number,
        city = excluded.city,
+       marketing_updated_at = CASE
+         WHEN customers.whatsapp_marketing <> excluded.whatsapp_marketing
+         THEN excluded.marketing_updated_at
+         ELSE customers.marketing_updated_at
+       END,
+       whatsapp_marketing = excluded.whatsapp_marketing,
        updated_at = excluded.updated_at`,
   ).bind(
     contact.phone,
@@ -167,6 +173,7 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     payment.documentType,
     payment.documentNumber,
     delivery.city,
+    contact.whatsappOptIn ? 1 : 0,
     timestamp,
   );
 
@@ -175,14 +182,14 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
   const insertOrder = env.DB.prepare(
     `INSERT INTO orders (
        id, created_at, status, idempotency_key,
-       customer_name, customer_surname, email, phone,
+       customer_name, customer_surname, email, phone, whatsapp_opt_in,
        city, neighborhood, address, additional_info,
        document_type, document_number, payment_method, bre_key,
        subtotal, shipping, total, prices_verified,
-       customer_id
+       customer_id, marketing_consent_version
      ) VALUES (
-       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,
-       (SELECT id FROM customers WHERE phone = ?7)
+       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
+       (SELECT id FROM customers WHERE phone = ?7), ?21
      )`,
   ).bind(
     orderId,
@@ -192,6 +199,7 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     contact.surname,
     contact.email,
     contact.phone,
+    contact.whatsappOptIn ? 1 : 0,
     delivery.city,
     delivery.neighborhood,
     delivery.address,
@@ -204,6 +212,7 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     priced.totals.shipping,
     priced.totals.total,
     pricesVerified ? 1 : 0,
+    contact.marketingConsentVersion ?? null,
   );
 
   const insertItems = priced.lines.map((line) =>
@@ -316,6 +325,7 @@ export interface OrderRow {
   customer_surname: string;
   email: string;
   phone: string;
+  whatsapp_opt_in: number;
   city: string;
   neighborhood: string;
   address: string;
@@ -330,6 +340,7 @@ export interface OrderRow {
   email_status: string;
   prices_verified: number;
   customer_id: number | null;
+  marketing_consent_version: string | null;
 }
 
 export interface OrderItemRow {

@@ -39,6 +39,7 @@ const request = (overrides: Partial<OrderRequest> = {}): OrderRequest =>
       surname: "Restrepo",
       email: "maria@example.com",
       phone: "3001234567",
+      whatsappOptIn: false,
     },
     delivery: {
       city: "chia",

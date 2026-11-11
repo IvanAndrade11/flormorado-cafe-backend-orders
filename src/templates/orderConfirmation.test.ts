@@ -27,6 +27,7 @@ const request = (payment: OrderRequest["payment"]): OrderRequest => ({
     surname: "Restrepo",
     email: "maria@example.com",
     phone: "3001234567",
+    whatsappOptIn: false,
   },
   delivery: {
     city: "chia",
