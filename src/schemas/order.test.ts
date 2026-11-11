@@ -64,13 +64,14 @@ describe("orderRequestSchema", () => {
     expect(result.data?.payment).not.toHaveProperty("notifyByWhatsApp");
   });
 
-  it("exige la llave del cliente cuando paga por BRE-B", () => {
+  it("acepta pagar por BRE-B sin llave del cliente e ignora la que aún envíe un checkout anterior", () => {
     const result = orderRequestSchema.safeParse({
       ...valid,
-      payment: { ...valid.payment, method: "bre_b" },
+      payment: { ...valid.payment, method: "bre_b", breKey: "@maria" },
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    expect(result.data?.payment).not.toHaveProperty("breKey");
   });
 
   it("rechaza un celular que no es colombiano", () => {

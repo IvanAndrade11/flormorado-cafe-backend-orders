@@ -18,7 +18,6 @@ interface OrderRow {
   address: string;
   additional_info: string | null;
   payment_method: keyof typeof PAYMENT_LABELS;
-  bre_key: string | null;
   total: number;
   prices_verified: number;
 }
@@ -43,7 +42,7 @@ export type DigestOutcome =
 export const sendPendingDigest = async (env: Env): Promise<DigestOutcome> => {
   const { results: orders } = await env.DB.prepare(
     `SELECT id, created_at, customer_name, customer_surname, phone, city,
-            neighborhood, address, additional_info, payment_method, bre_key,
+            neighborhood, address, additional_info, payment_method,
             total, prices_verified
        FROM orders
       WHERE digest_sent = 0
@@ -72,7 +71,6 @@ export const sendPendingDigest = async (env: Env): Promise<DigestOutcome> => {
     address: order.address,
     additionalInfo: order.additional_info,
     paymentMethod: order.payment_method,
-    breKey: order.bre_key,
     total: order.total,
     pricesVerified: order.prices_verified === 1,
     items: items
