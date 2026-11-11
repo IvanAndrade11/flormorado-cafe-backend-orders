@@ -22,7 +22,6 @@ export interface DigestOrder {
   address: string;
   additionalInfo: string | null;
   paymentMethod: keyof typeof PAYMENT_LABELS;
-  breKey: string | null;
   total: number;
   pricesVerified: boolean;
   items: DigestItem[];
@@ -85,7 +84,7 @@ const orderBlock = (order: DigestOrder) => `
           ${
             order.paymentMethod === "cash_on_delivery"
               ? `<strong>Cobrar ${formatCop(order.total)}</strong> contraentrega`
-              : `<strong>${formatCop(order.total)}</strong> por llave BRE-B ${order.breKey ? `<code style="color:${PLUM}">${escape(order.breKey)}</code>` : ""} — verificar que la transferencia llegó`
+              : `<strong>${formatCop(order.total)}</strong> por llave BRE-B — verificar que la transferencia llegó`
           }
         </div>
       </td>

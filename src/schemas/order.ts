@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { DELIVERY_CITIES, DOCUMENT_TYPES } from "@/utils/constants";
+import {
+  DELIVERY_CITIES,
+  DOCUMENT_TYPES,
+  PAYMENT_METHODS,
+} from "@/utils/constants";
 
 // Las reglas replican las de CONTACT/DELIVERY/PAYMENT_FORM_FIELDS del frontend.
 // Si el backend fuera más estricto rechazaría pedidos que el checkout dio por
@@ -40,17 +44,13 @@ const identity = {
   documentNumber: z.string().regex(/^[0-9]{5,15}$/, "documento inválido"),
 };
 
-// Union discriminada en vez de un breKey opcional suelto: así la llave BRE-B es
-// obligatoria cuando el método la necesita e inválida cuando no, que es lo
-// mismo que hace el `showWhen` del formulario, pero verificado.
-const payment = z.discriminatedUnion("method", [
-  z.object({ method: z.literal("cash_on_delivery"), ...identity }),
-  z.object({
-    method: z.literal("bre_b"),
-    breKey: z.string().trim().min(6).max(60),
-    ...identity,
-  }),
-]);
+// El cliente ya no escribe su llave BRE-B (`FMC-0025`): la transferencia la
+// identifica su banco. Un checkout anterior que aún la envíe no se rechaza,
+// Zod descarta las claves desconocidas.
+const payment = z.object({
+  method: z.enum(PAYMENT_METHODS),
+  ...identity,
+});
 
 // El precio que el navegador mostró. No se usa para cobrar — se compara contra
 // el catálogo para detectar un carrito viejo cuyos precios ya cambiaron.

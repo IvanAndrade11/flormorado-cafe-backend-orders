@@ -60,7 +60,7 @@ describe("confirmationHtml", () => {
   it("dice a qué llave transferir, qué nombre verificar y qué escribir", () => {
     const html = confirmationHtml({
       orderId: "FM-20260916-002",
-      request: request({ method: "bre_b", breKey: "@maria", ...identity }),
+      request: request({ method: "bre_b", ...identity }),
       lines,
       totals,
       paymentInstructions: { llave: "@flormorado", titular: "Flormorado Café" },
@@ -75,7 +75,7 @@ describe("confirmationHtml", () => {
   it("escapa los datos de pago antes de meterlos en el correo", () => {
     const html = confirmationHtml({
       orderId: "FM-20260916-003",
-      request: request({ method: "bre_b", breKey: "@maria", ...identity }),
+      request: request({ method: "bre_b", ...identity }),
       lines,
       totals,
       paymentInstructions: {
@@ -91,7 +91,7 @@ describe("confirmationHtml", () => {
   it("no inventa una llave si faltan las instrucciones", () => {
     const html = confirmationHtml({
       orderId: "FM-20260916-004",
-      request: request({ method: "bre_b", breKey: "@maria", ...identity }),
+      request: request({ method: "bre_b", ...identity }),
       lines,
       totals,
     });

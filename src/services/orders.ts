@@ -184,7 +184,7 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
        id, created_at, status, idempotency_key,
        customer_name, customer_surname, email, phone, whatsapp_opt_in,
        city, neighborhood, address, additional_info,
-       document_type, document_number, payment_method, bre_key,
+       document_type, document_number, payment_method,
        subtotal, shipping, total, prices_verified,
        customer_id, marketing_consent_version
      ) VALUES (
@@ -207,7 +207,6 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     payment.documentType,
     payment.documentNumber,
     payment.method,
-    payment.method === "bre_b" ? payment.breKey : null,
     priced.totals.subtotal,
     priced.totals.shipping,
     priced.totals.total,
