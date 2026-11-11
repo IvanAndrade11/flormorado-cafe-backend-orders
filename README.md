@@ -10,7 +10,7 @@
 - [Estado actual](#-estado-actual)
 - [Tecnologías principales](#️-tecnologías-principales)
 - [Arquitectura del proyecto](#️-arquitectura-del-proyecto)
-- [Datos de clientes](#-datos-de-clientes)
+- [Datos y consentimiento](#-datos-y-consentimiento)
 - [Seguridad](#-seguridad)
 - [Requisitos previos](#-requisitos-previos)
 - [Instalación y configuración](#-instalación-y-configuración)
@@ -31,7 +31,7 @@ Los dos métodos de pago del negocio —**contraentrega** y **llave BRE-B**— n
 
 - **Recibir y validar** el pedido. El total se recalcula con los precios del catálogo de ConfigCat, nunca con los que manda el navegador, y se rechazan productos agotados o carritos con precios viejos.
 - **Guardarlo** en D1 antes de intentar cualquier notificación, para que un fallo de correo nunca signifique un pedido perdido.
-- **Registrar al cliente** por su celular, con los datos de su último pedido.
+- **Registrar al cliente** por su celular, con su consentimiento vigente para recibir novedades.
 - **Indicar cómo pagar** por BRE-B: la llave y el titular de la empresa van en la respuesta y en el correo.
 - **Notificar** al cliente por correo y al negocio con un resumen cada hora, de 8am a 8pm.
 - **Recibir mensajes de contacto** del formulario de la página de contacto, guardarlos y reenviarlos al correo del negocio, con el correo del cliente como `reply-to`.
@@ -51,7 +51,7 @@ El plan completo, con el avance por paso, vive en el [plan de trabajo](https://c
 | 4    | Panel de control de pedidos (`FMC-0020`)       | ✅ Endpoints listos — la interfaz vive en el frontend |
 | 5    | Conexión con el checkout del frontend          | ✅ PR en revisión     |
 | 6    | Clientes y pago con BRE-B (`FMC-0017`)         | 🔨 En curso           |
-| 7    | Canal de WhatsApp (Meta Cloud API) (`FMC-0024`) | 🚫 Descartado — Meta no aprobó la verificación del negocio |
+| 7    | Canal de WhatsApp por la API de Meta (`FMC-0024`) | 🚫 Descartado — Meta no aprobó la verificación del negocio |
 | 8    | Endurecimiento: límite de tasa, Turnstile y alertas (`FMC-0021`) | 🔨 En curso |
 
 Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que guarda y reenvía los mensajes del formulario de contacto del frontend al correo del negocio. ✅ Completo.
@@ -100,13 +100,16 @@ docs/configCat/        → estructura real del flag storeProducts
 
 ---
 
-## 🔏 Datos de clientes
+## 🔏 Datos y consentimiento
 
-La tabla `customers` guarda datos personales (nombre, correo, documento, ciudad), así que aplica la **Ley 1581 de 2012** como a cualquier dato del negocio.
+La tabla `customers` guarda datos personales con fines comerciales, así que aplica la **Ley 1581 de 2012**: el consentimiento debe ser previo, expreso e informado, y hay que poder probarlo.
 
-- **Identidad:** el celular. Cada pedido actualiza los datos del cliente con los más recientes.
+- **Identidad:** el celular, que es la llave con la que WhatsApp reconoce a una persona. Cada pedido actualiza los datos del cliente con los más recientes.
+- **Consentimiento vigente:** lo define el último pedido. Si el cliente vuelve a comprar sin marcar la casilla de novedades, deja de recibirlas. `marketing_updated_at` solo se mueve cuando ese valor cambia.
+- **Prueba:** cada pedido guarda si el cliente marcó la casilla (`whatsapp_opt_in`) y qué versión del texto vio (`marketing_consent_version`).
 - **Lo derivable no se guarda:** número de pedidos, total comprado y fechas de compra se calculan desde `orders`.
-- **Columnas heredadas del canal de WhatsApp (`FMC-0024`).** Se decidió no enviar notificaciones ni novedades por WhatsApp y el código dejó de leer y escribir `customers.whatsapp_marketing`, `orders.whatsapp_opt_in`, `orders.notify_whatsapp`, `orders.whatsapp_status` y `orders.marketing_consent_version`. Siguen en la base a propósito: quitarlas es una migración que no es aditiva (rompería el código anterior en los segundos entre la migración y el despliegue) y los consentimientos ya recogidos son el único registro de lo que esos clientes aceptaron. `customers.marketing_updated_at` es `NOT NULL` y sin valor por defecto, por eso el alta de un cliente todavía lo llena.
+- **Novedades por WhatsApp, a mano (`FMC-0024`).** Meta no aprobó la verificación del negocio, así que no hay envío automático por la API. La casilla de novedades y el consentimiento siguen igual, pero las novedades las manda el negocio desde su celular con la app de WhatsApp, usando la lista de clientes del panel (filtro «Autorizadas»). Por eso el consentimiento sigue versionado y revocable desde el panel.
+- **Columnas que ya nada usa:** `orders.notify_whatsapp` (la casilla «confirmación también por WhatsApp», retirada) y `orders.whatsapp_status` (el estado del envío por la API). Siguen en la base porque quitar una columna no es aditivo; se borran en una migración posterior si hace falta.
 
 ---
 
@@ -203,8 +206,9 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | `GET`  | `/admin/orders` | Lista pedidos (`limit`, `offset`, `status` y `q`, que busca por número de pedido, documento, celular, correo o nombre completo). Requiere `Authorization: Bearer <ADMIN_PASSWORD>` |
 | `GET`  | `/admin/orders/:id` | Detalle de un pedido: productos, historial de estado y notificaciones |
 | `PATCH` | `/admin/orders/:id/status` | Cambia el estado del pedido, validando la transición según el método de pago |
-| `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` (`limit`, `offset` y `q`, que busca por nombre completo, celular, correo o documento) |
-| `GET`  | `/admin/customers/:id` | Detalle de un cliente: sus datos y su historial de pedidos |
+| `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` (`limit`, `offset`, `marketing` = `1` autorizadas o `0` de baja, y `q`, que busca por nombre completo, celular, correo o documento) |
+| `GET`  | `/admin/customers/:id` | Detalle de un cliente: sus datos y su historial de pedidos con lo que respondió en la casilla de novedades (prueba del consentimiento) |
+| `PATCH` | `/admin/customers/:id/opt-out` | Da de baja las novedades de un cliente (Ley 1581) |
 | `GET`  | `/admin/contact-messages` | Lista los mensajes del formulario de contacto |
 | `PATCH` | `/admin/contact-messages/:id/status` | Marca un mensaje como `atendido` o `nuevo` |
 
