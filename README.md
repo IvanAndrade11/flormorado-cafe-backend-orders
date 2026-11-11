@@ -202,7 +202,7 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | ------ | --------- | --------------------------------------------------------------- |
 | `GET`  | `/health` | Verifica que el servicio está arriba. Abierto a cualquier origen |
 | `POST` | `/orders` | Crea un pedido. Solo acepta llamadas desde los orígenes autorizados |
-| `POST` | `/contact` | Guarda y reenvía un mensaje del formulario de contacto al correo del negocio. Solo acepta llamadas desde los orígenes autorizados |
+| `POST` | `/contact` | Guarda y reenvía un mensaje del formulario de contacto al correo del negocio. Devuelve `radicado` y `fecha`, que la Ley 1480 exige entregarle al cliente por cada PQR. Solo acepta llamadas desde los orígenes autorizados |
 | `GET`  | `/admin/orders` | Lista pedidos (`limit`, `offset`, `status` y `q`, que busca por número de pedido, documento, celular, correo o nombre completo). Requiere `Authorization: Bearer <ADMIN_PASSWORD>` |
 | `GET`  | `/admin/orders/:id` | Detalle de un pedido: productos, historial de estado y notificaciones |
 | `PATCH` | `/admin/orders/:id/status` | Cambia el estado del pedido, validando la transición según el método de pago |
