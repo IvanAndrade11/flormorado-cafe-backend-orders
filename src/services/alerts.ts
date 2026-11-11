@@ -23,7 +23,6 @@ interface OrderRow {
   customer_surname: string;
   phone: string;
   email_status: string;
-  whatsapp_status: string;
 }
 
 interface ContactRow {
@@ -59,11 +58,10 @@ export const sendFailureAlerts = async (
   const [orders, messages] = await Promise.all([
     env.DB.prepare(
       `SELECT id, created_at, customer_name, customer_surname, phone,
-              email_status, whatsapp_status
+              email_status
          FROM orders
         WHERE failure_alerted = 0
           AND (email_status LIKE 'fallo%'
-               OR whatsapp_status LIKE 'fallo%'
                OR (email_status = 'pendiente' AND created_at < ?1))
         ORDER BY created_at ASC
         LIMIT ?2`,
@@ -87,26 +85,12 @@ export const sendFailureAlerts = async (
     return { sent: false, reason: "sin_fallos" };
   }
 
-  // La consulta trae el pedido si falló cualquiera de los dos canales; aquí se
-  // vuelve a decidir cuál, para no listar como fallido un correo que sigue en
-  // camino cuando lo que falló fue el WhatsApp.
-  const emailFailed = (order: OrderRow) =>
-    order.email_status.startsWith("fallo") ||
-    (order.email_status === "pendiente" && order.created_at < staleBefore);
-
   const failedOrders: FailedOrder[] = orders.results.map((order) => ({
     id: order.id,
     createdAt: order.created_at,
     customer: `${order.customer_name} ${order.customer_surname}`,
     phone: order.phone,
-    failures: [
-      ...(emailFailed(order)
-        ? [describe("Correo al cliente", order.email_status)]
-        : []),
-      ...(order.whatsapp_status.startsWith("fallo")
-        ? [describe("WhatsApp", order.whatsapp_status)]
-        : []),
-    ],
+    failures: [describe("Correo al cliente", order.email_status)],
   }));
 
   const failedMessages: FailedContactMessage[] = messages.results.map(

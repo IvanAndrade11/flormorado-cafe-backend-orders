@@ -30,7 +30,7 @@ El checkout del frontend recolectaba toda la información de un pedido (contacto
 Los dos métodos de pago del negocio —**contraentrega** y **llave BRE-B**— no requieren cobro en línea, así que aquí no hay pasarela de pago. Lo que hace el servicio es:
 
 - **Recibir y validar** el pedido. El total se recalcula con los precios del catálogo de ConfigCat, nunca con los que manda el navegador, y se rechazan productos agotados o carritos con precios viejos.
-- **Guardarlo** en D1 antes de intentar cualquier notificación, para que un fallo de correo o WhatsApp nunca signifique un pedido perdido.
+- **Guardarlo** en D1 antes de intentar cualquier notificación, para que un fallo de correo nunca signifique un pedido perdido.
 - **Registrar al cliente** por su celular, con su consentimiento vigente para recibir novedades.
 - **Indicar cómo pagar** por BRE-B: la llave y el titular de la empresa van en la respuesta y en el correo.
 - **Notificar** al cliente por correo y al negocio con un resumen cada hora, de 8am a 8pm.
@@ -51,7 +51,7 @@ El plan completo, con el avance por paso, vive en el [plan de trabajo](https://c
 | 4    | Panel de control de pedidos (`FMC-0020`)       | ✅ Endpoints listos — la interfaz vive en el frontend |
 | 5    | Conexión con el checkout del frontend          | ✅ PR en revisión     |
 | 6    | Clientes y pago con BRE-B (`FMC-0017`)         | 🔨 En curso           |
-| 7    | Canal de WhatsApp (Meta Cloud API)             | ⏳ Pendiente          |
+| 7    | Canal de WhatsApp por la API de Meta (`FMC-0024`) | 🚫 Descartado — Meta no aprobó la verificación del negocio |
 | 8    | Endurecimiento: límite de tasa, Turnstile y alertas (`FMC-0021`) | 🔨 En curso |
 
 Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que guarda y reenvía los mensajes del formulario de contacto del frontend al correo del negocio. ✅ Completo.
@@ -69,7 +69,6 @@ Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que guarda y
 | **Base de datos**  | Cloudflare D1 (SQLite), con migraciones versionadas            |
 | **Catálogo**       | Flag `storeProducts` de ConfigCat, validado en ejecución       |
 | **Correo**         | Resend                                                         |
-| **WhatsApp**       | Meta WhatsApp Cloud API — fase 7                               |
 | **Formateo**       | Prettier                                                       |
 | **Linter**         | ESLint 10 (flat config) + typescript-eslint                    |
 | **Testing**        | Vitest                                                         |
@@ -85,9 +84,9 @@ Servicio HTTP en capas separadas por responsabilidad, siguiendo la misma organiz
 src/
 ├── index.ts          → app de Hono, CORS y cron del resumen
 ├── middleware/        → adminAuth (clave del panel) y rateLimit (límite por IP)
-├── routes/            → health, orders, contact, webhooks/whatsapp, admin*
+├── routes/            → health, orders, contact, admin*
 ├── schemas/           → validación Zod del pedido, el contacto, el catálogo y el panel
-├── services/          → orders (D1), customers, contactMessages, configcat, payments, resend, whatsapp, digest, alerts, turnstile
+├── services/          → orders (D1), customers, contactMessages, configcat, payments, resend, digest, alerts, turnstile
 ├── templates/         → correo al cliente, aviso de contacto y resumen al negocio
 ├── types/             → bindings del Worker
 └── utils/constants/   → ciudades, estados, reglas de precio
@@ -109,6 +108,8 @@ La tabla `customers` guarda datos personales con fines comerciales, así que apl
 - **Consentimiento vigente:** lo define el último pedido. Si el cliente vuelve a comprar sin marcar la casilla de novedades, deja de recibirlas. `marketing_updated_at` solo se mueve cuando ese valor cambia.
 - **Prueba:** cada pedido guarda si el cliente marcó la casilla (`whatsapp_opt_in`) y qué versión del texto vio (`marketing_consent_version`).
 - **Lo derivable no se guarda:** número de pedidos, total comprado y fechas de compra se calculan desde `orders`.
+- **Novedades por WhatsApp, a mano (`FMC-0024`).** Meta no aprobó la verificación del negocio, así que no hay envío automático por la API. La casilla de novedades y el consentimiento siguen igual, pero las novedades las manda el negocio desde su celular con la app de WhatsApp, usando la lista de clientes del panel (filtro «Autorizadas»). Por eso el consentimiento sigue versionado y revocable desde el panel.
+- **Columnas que ya nada usa:** `orders.notify_whatsapp` (la casilla «confirmación también por WhatsApp», retirada) y `orders.whatsapp_status` (el estado del envío por la API). Siguen en la base porque quitar una columna no es aditivo; se borran en una migración posterior si hace falta.
 
 ---
 
@@ -131,7 +132,7 @@ El endpoint queda expuesto en internet, así que esta capa evita que alguien lo 
 
 **Los límites de tasa son una capa contra el abuso, no contabilidad exacta.** Cloudflare los cuenta por ubicación y de forma eventualmente consistente, y el código falla abierto si el binding falta o no responde. Las cifras son generosas porque muchos clientes comparten IP (datos móviles, oficinas). Van definidas en `wrangler.toml`; `period` solo admite 10 o 60 segundos.
 
-**Alerta de notificaciones fallidas.** El cron de cada hora, además del resumen de pedidos, revisa pedidos y mensajes cuyo correo (o WhatsApp) falló, o que llevan más de 30 minutos en `pendiente` —el envío corre en segundo plano y un Worker cortado deja el estado sin actualizar—, y manda **un solo correo** al negocio con la lista. `failure_alerted` (migración `0007`) evita repetir el aviso y solo se marca cuando el correo salió: si el fallo es de Resend, el aviso se reintenta la hora siguiente. Las filas anteriores a la migración se dan por avisadas. En el panel, la lista de pedidos y la de mensajes marcan esos casos con «Notificación fallida».
+**Alerta de notificaciones fallidas.** El cron de cada hora, además del resumen de pedidos, revisa pedidos y mensajes cuyo correo falló, o que llevan más de 30 minutos en `pendiente` —el envío corre en segundo plano y un Worker cortado deja el estado sin actualizar—, y manda **un solo correo** al negocio con la lista. `failure_alerted` (migración `0007`) evita repetir el aviso y solo se marca cuando el correo salió: si el fallo es de Resend, el aviso se reintenta la hora siguiente. Las filas anteriores a la migración se dan por avisadas. En el panel, la lista de pedidos y la de mensajes marcan esos casos con «Notificación fallida».
 
 ---
 
@@ -171,10 +172,6 @@ Los **secretos** viven en el almacén de Cloudflare y se cargan con `npx wrangle
 | `BREB_KEY`                 | Variable | Llave BRE-B de la empresa                               |
 | `BREB_HOLDER`              | Variable | Titular que el cliente verá al confirmar la transferencia |
 | `ADMIN_PASSWORD`           | Secreto  | Clave del panel de pedidos — fase 4                     |
-| `WHATSAPP_VERIFY_TOKEN`    | Secreto  | Cadena que inventamos; Meta la usa para verificar el webhook |
-| `WHATSAPP_APP_SECRET`      | Secreto  | Secreto de la app de Meta, valida la firma de cada webhook |
-| `WHATSAPP_TOKEN`           | Secreto  | Token permanente de Meta — fase 7                       |
-| `WHATSAPP_PHONE_NUMBER_ID` | Secreto  | ID del número en la Cloud API — fase 7                  |
 | `TURNSTILE_SECRET_KEY`     | Secreto  | Secreto del widget de Turnstile — fase 8. Opcional: sin él no se exige el token |
 | `ORDER_IP_LIMITER`, `ORDER_EMAIL_LIMITER`, `CONTACT_IP_LIMITER`, `ADMIN_IP_LIMITER` | Binding | Limitadores de tasa de `wrangler.toml` (`[[ratelimits]]`) — fase 8 |
 
@@ -206,14 +203,12 @@ Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test
 | `GET`  | `/health` | Verifica que el servicio está arriba. Abierto a cualquier origen |
 | `POST` | `/orders` | Crea un pedido. Solo acepta llamadas desde los orígenes autorizados |
 | `POST` | `/contact` | Guarda y reenvía un mensaje del formulario de contacto al correo del negocio. Solo acepta llamadas desde los orígenes autorizados |
-| `GET`  | `/webhooks/whatsapp` | Verificación del webhook: responde el `hub.challenge` de Meta |
-| `POST` | `/webhooks/whatsapp` | Recibe eventos de Meta. Solo acepta payloads con firma HMAC válida |
 | `GET`  | `/admin/orders` | Lista pedidos (`limit`, `offset`, `status` y `q`, que busca por número de pedido, documento, celular, correo o nombre completo). Requiere `Authorization: Bearer <ADMIN_PASSWORD>` |
 | `GET`  | `/admin/orders/:id` | Detalle de un pedido: productos, historial de estado y notificaciones |
 | `PATCH` | `/admin/orders/:id/status` | Cambia el estado del pedido, validando la transición según el método de pago |
 | `GET`  | `/admin/customers` | Lista clientes con pedidos y total comprado calculados desde `orders` (`limit`, `offset`, `marketing` = `1` autorizadas o `0` de baja, y `q`, que busca por nombre completo, celular, correo o documento) |
 | `GET`  | `/admin/customers/:id` | Detalle de un cliente: sus datos y su historial de pedidos con lo que respondió en la casilla de novedades (prueba del consentimiento) |
-| `PATCH` | `/admin/customers/:id/opt-out` | Da de baja las novedades por WhatsApp de un cliente (Ley 1581) |
+| `PATCH` | `/admin/customers/:id/opt-out` | Da de baja las novedades de un cliente (Ley 1581) |
 | `GET`  | `/admin/contact-messages` | Lista los mensajes del formulario de contacto |
 | `PATCH` | `/admin/contact-messages/:id/status` | Marca un mensaje como `atendido` o `nuevo` |
 

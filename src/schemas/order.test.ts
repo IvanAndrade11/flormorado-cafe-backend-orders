@@ -20,7 +20,6 @@ const valid = {
     method: "cash_on_delivery",
     documentType: "CC",
     documentNumber: "1012345678",
-    notifyByWhatsApp: false,
   },
   items: [
     {
@@ -51,6 +50,18 @@ describe("orderRequestSchema", () => {
     });
 
     expect(result.data?.contact.marketingConsentVersion).toBe("2026-09-16");
+  });
+
+  // La casilla de confirmación por WhatsApp se retiró con la API de Meta: un
+  // checkout anterior que aún la envía no puede quedar rechazado.
+  it("ignora la casilla de confirmación por WhatsApp que un checkout anterior aún envía", () => {
+    const result = orderRequestSchema.safeParse({
+      ...valid,
+      payment: { ...valid.payment, notifyByWhatsApp: true },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.payment).not.toHaveProperty("notifyByWhatsApp");
   });
 
   it("exige la llave del cliente cuando paga por BRE-B", () => {

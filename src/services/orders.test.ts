@@ -50,7 +50,6 @@ const request = (overrides: Partial<OrderRequest> = {}): OrderRequest =>
       method: "cash_on_delivery",
       documentType: "CC",
       documentNumber: "1012345678",
-      notifyByWhatsApp: false,
     },
     items: [
       {

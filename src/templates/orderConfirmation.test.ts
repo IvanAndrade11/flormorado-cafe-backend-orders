@@ -42,7 +42,6 @@ const request = (payment: OrderRequest["payment"]): OrderRequest => ({
 const identity = {
   documentType: "CC" as const,
   documentNumber: "1012345678",
-  notifyByWhatsApp: false,
 };
 
 describe("confirmationHtml", () => {

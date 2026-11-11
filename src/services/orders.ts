@@ -182,14 +182,14 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
   const insertOrder = env.DB.prepare(
     `INSERT INTO orders (
        id, created_at, status, idempotency_key,
-       customer_name, customer_surname, email, phone, whatsapp_opt_in, notify_whatsapp,
+       customer_name, customer_surname, email, phone, whatsapp_opt_in,
        city, neighborhood, address, additional_info,
        document_type, document_number, payment_method, bre_key,
        subtotal, shipping, total, prices_verified,
        customer_id, marketing_consent_version
      ) VALUES (
-       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,
-       (SELECT id FROM customers WHERE phone = ?7), ?22
+       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
+       (SELECT id FROM customers WHERE phone = ?7), ?21
      )`,
   ).bind(
     orderId,
@@ -200,7 +200,6 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     contact.email,
     contact.phone,
     contact.whatsappOptIn ? 1 : 0,
-    payment.notifyByWhatsApp ? 1 : 0,
     delivery.city,
     delivery.neighborhood,
     delivery.address,
@@ -268,7 +267,6 @@ export interface OrderListItem {
   status: string;
   // Para que el panel marque en la lista los pedidos cuya notificación falló.
   email_status: string;
-  whatsapp_status: string;
 }
 
 export interface ListOrdersArgs {
@@ -303,7 +301,7 @@ export const listOrders = async (
   const [rows, countRow] = await Promise.all([
     env.DB.prepare(
       `SELECT id, created_at, customer_name, customer_surname, city, total, payment_method, status,
-              email_status, whatsapp_status
+              email_status
        FROM orders
        WHERE ${ORDER_FILTERS}
        ORDER BY created_at DESC
@@ -328,7 +326,6 @@ export interface OrderRow {
   email: string;
   phone: string;
   whatsapp_opt_in: number;
-  notify_whatsapp: number;
   city: string;
   neighborhood: string;
   address: string;
@@ -341,7 +338,6 @@ export interface OrderRow {
   shipping: number;
   total: number;
   email_status: string;
-  whatsapp_status: string;
   prices_verified: number;
   customer_id: number | null;
   marketing_consent_version: string | null;

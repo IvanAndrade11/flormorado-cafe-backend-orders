@@ -38,7 +38,6 @@ const delivery = z.object({
 const identity = {
   documentType: z.enum(DOCUMENT_TYPES),
   documentNumber: z.string().regex(/^[0-9]{5,15}$/, "documento inválido"),
-  notifyByWhatsApp: z.boolean().default(false),
 };
 
 // Union discriminada en vez de un breKey opcional suelto: así la llave BRE-B es

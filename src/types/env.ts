@@ -19,12 +19,6 @@ export interface Env {
   // secretas, y tenerlas en git deja rastro si alguien las cambia.
   BREB_KEY: string;
   BREB_HOLDER: string;
-  // Cadena que inventamos nosotros; Meta la devuelve al verificar la URL de
-  // devolución de llamada, para confirmar que el endpoint es nuestro.
-  WHATSAPP_VERIFY_TOKEN: string;
-  // Secreto de la app de Meta (Configuración básica > App secret), usado para
-  // validar que cada POST del webhook viene realmente de Meta.
-  WHATSAPP_APP_SECRET: string;
   // Clave del panel de pedidos (fase 4). El frontend la manda como
   // `Authorization: Bearer <clave>` en cada llamada a /admin/*; nunca viaja en
   // el bundle público.
