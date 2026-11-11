@@ -179,6 +179,12 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
 
   // El cliente se busca por celular dentro del mismo lote: el upsert de arriba
   // ya corrió cuando llega esta instrucción.
+  //
+  // Cuidado al agregar o quitar una columna: los `?N` son posicionales y van en
+  // orden salvo `customer_id`, que lleva la subconsulta, así que hay que
+  // renumerar todo lo que venga después y dejar tantos `?N` como valores tenga
+  // el `.bind(...)`. Las pruebas no ejecutan este SQL (no hay binding de D1),
+  // así que un descuadre solo se ve en producción: así se rompió en FMC-0025.
   const insertOrder = env.DB.prepare(
     `INSERT INTO orders (
        id, created_at, status, idempotency_key,
@@ -188,8 +194,8 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
        subtotal, shipping, total, prices_verified,
        customer_id, marketing_consent_version
      ) VALUES (
-       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
-       (SELECT id FROM customers WHERE phone = ?7), ?21
+       ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,
+       (SELECT id FROM customers WHERE phone = ?7), ?20
      )`,
   ).bind(
     orderId,
