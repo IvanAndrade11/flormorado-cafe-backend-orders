@@ -11,10 +11,15 @@ ORDERS_EMAIL_FROM = "Flormorado Café <info@flormoradocafe.com>"
 ALLOWED_ORIGINS = "https://flormoradocafe.com,https://www.flormoradocafe.com"
 # Se le muestran a todo cliente que paga por transferencia. Cambiarlas aquí, y
 # no en ConfigCat, deja rastro en git de quién las cambió y cuándo.
-# PENDIENTE: BREB_HOLDER sigue con valor de prueba; confirmar el titular real
-# antes de mezclar FMC-0017.
-BREB_KEY = "0090486453"
-BREB_HOLDER = "TITULAR DE PRUEBA"
+# El titular es, carácter por carácter, el nombre que el banco del cliente le
+# muestra antes de confirmar la transferencia (comprobado con un pago real en
+# FMC-0026), porque el texto de la confirmación le pide compararlo: si aquí dice
+# otra cosa, el cliente cancela creyendo que la llave está suplantada. Va sin
+# tilde a propósito; no "corregirlo" a Café. Tampoco sirve de guía el campo 59
+# del QR, que trae "Flormorado Cafe Irma O" por el recorte a 22 caracteres del
+# estándar. Si cambia la llave, volver a pagar y copiar lo que salga.
+BREB_KEY = "0093613415"
+BREB_HOLDER = "Flormorado Cafe"
 
 [[d1_databases]]
 binding = "DB"
