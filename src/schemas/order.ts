@@ -36,6 +36,9 @@ const contact = z.object({
   // aviso a la vista—, así que esto es lo único que queda como prueba de qué
   // se le informó. Opcional por la misma razón que la línea de arriba.
   privacyPolicyVersion: z.string().trim().min(1).max(40).optional(),
+  // Y qué versión de los términos y condiciones regía al comprar. Es otra
+  // norma —Estatuto del Consumidor, no habeas data— pero el mismo mecanismo.
+  termsVersion: z.string().trim().min(1).max(40).optional(),
 });
 
 const delivery = z.object({
