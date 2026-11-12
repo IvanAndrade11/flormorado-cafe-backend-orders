@@ -27,14 +27,23 @@ export const findRecentDuplicate = (
   const since = new Date(now.getTime() - DUPLICATE_WINDOW_MS).toISOString();
 
   return env.DB.prepare(
-    `SELECT id, email_status FROM contact_messages
+    `SELECT id, email_status, created_at FROM contact_messages
      WHERE email = ?1 AND message = ?2 AND created_at >= ?3
      ORDER BY created_at DESC
      LIMIT 1`,
   )
     .bind(request.email, request.message, since)
-    .first<{ id: number; email_status: string }>();
+    .first<{ id: number; email_status: string; created_at: string }>();
 };
+
+/**
+ * Número de radicado que se le devuelve al cliente. El artículo 50 de la Ley
+ * 1480, reformado por la Ley 2439 de 2024, exige que de cada PQR le quede
+ * constancia con un número, la fecha y la hora. Se deriva del `id` de la fila
+ * en vez de guardarse aparte: así no puede desincronizarse del mensaje.
+ */
+export const contactTicket = (id: number): string =>
+  `FM-C-${String(id).padStart(5, "0")}`;
 
 export const persistContactMessage = async (
   env: Env,

@@ -1,3 +1,12 @@
+// Plazo de entrega prometido. El artículo 50 de la Ley 1480 obliga a
+// informarlo antes de cerrar la compra, y el correo de confirmación hace de
+// acuse de recibo, así que tiene que decirlo también. Si no se informara, la
+// ley impone 30 días calendario. Debe coincidir con DELIVERY_WINDOW del
+// frontend (src/utils/constants/common/legal.ts) y con los términos y
+// condiciones publicados: incumplirlo deja al cliente terminar el contrato y
+// exigir la devolución en 15 días calendario.
+export const DELIVERY_WINDOW = "2 a 5 días hábiles";
+
 // Debe coincidir con BOGOTA_NEARBY_CITIES del frontend: el negocio entrega en
 // moto, así que el alcance es Bogotá y municipios aledaños.
 export const CITY_LABELS = {

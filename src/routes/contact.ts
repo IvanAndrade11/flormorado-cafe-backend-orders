@@ -4,6 +4,7 @@ import { clientIp } from "@/middleware/rateLimit";
 import { contactRequestSchema } from "@/schemas/contact";
 import {
   findRecentDuplicate,
+  contactTicket,
   persistContactMessage,
   recordContactMessageEmailStatus,
 } from "@/services/contactMessages";
@@ -65,7 +66,14 @@ contact.post("/", async (c) => {
   // Si el mensaje ya llegó al negocio no se vuelve a enviar: sin esto, repetir
   // la misma petición serviría para llenar el buzón con copias.
   if (duplicate?.email_status === "enviado") {
-    return c.json({ enviado: true }, 201);
+    return c.json(
+      {
+        enviado: true,
+        radicado: contactTicket(duplicate.id),
+        fecha: duplicate.created_at,
+      },
+      201,
+    );
   }
 
   const id = duplicate
@@ -94,5 +102,8 @@ contact.post("/", async (c) => {
     return c.json({ error: "no_se_pudo_enviar" }, 502);
   }
 
-  return c.json({ enviado: true }, 201);
+  return c.json(
+    { enviado: true, radicado: contactTicket(id), fecha: now.toISOString() },
+    201,
+  );
 });

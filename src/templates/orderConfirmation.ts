@@ -2,6 +2,7 @@ import type { OrderRequest } from "@/schemas/order";
 import type { BreBInstructions } from "@/services/payments";
 import {
   CITY_LABELS,
+  DELIVERY_WINDOW,
   formatCop,
   type PricedLine,
   type Totals,
@@ -123,6 +124,9 @@ export const confirmationHtml = ({
           ${escape(delivery.address)}<br>
           ${escape(delivery.neighborhood)}, ${CITY_LABELS[delivery.city]}
           ${delivery.additionalInfo ? `<br><span style="color:${MUTED}">${escape(delivery.additionalInfo)}</span>` : ""}
+        </p>
+        <p style="margin:10px 0 0;color:${MUTED};font-size:14px;line-height:1.5">
+          Llega en <strong style="color:${INK}">${DELIVERY_WINDOW}</strong>.
         </p>
       </td>
     </tr>

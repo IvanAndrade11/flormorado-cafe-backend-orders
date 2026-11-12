@@ -192,10 +192,11 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
        city, neighborhood, address, additional_info,
        document_type, document_number, payment_method,
        subtotal, shipping, total, prices_verified,
-       customer_id, marketing_consent_version, privacy_policy_version
+       customer_id, marketing_consent_version, privacy_policy_version,
+       terms_version
      ) VALUES (
        ?1,?2,'nuevo',?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,
-       (SELECT id FROM customers WHERE phone = ?7), ?20, ?21
+       (SELECT id FROM customers WHERE phone = ?7), ?20, ?21, ?22
      )`,
   ).bind(
     orderId,
@@ -219,6 +220,7 @@ export const persistOrder = async (env: Env, args: PersistArgs) => {
     pricesVerified ? 1 : 0,
     contact.marketingConsentVersion ?? null,
     contact.privacyPolicyVersion ?? null,
+    contact.termsVersion ?? null,
   );
 
   const insertItems = priced.lines.map((line) =>
@@ -348,6 +350,7 @@ export interface OrderRow {
   customer_id: number | null;
   marketing_consent_version: string | null;
   privacy_policy_version: string | null;
+  terms_version: string | null;
 }
 
 export interface OrderItemRow {
