@@ -194,6 +194,8 @@ Los **secretos** viven en el almacén de Cloudflare y se cargan con `npx wrangle
 
 Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test.ts`
 
+`npm run test:contract` corre aparte la prueba de contrato que cruza este repo con el frontend — no la incluye `npm test`/CI, y necesita que `flormorado-cafe-frontend-react-app` esté clonado al lado de este. Detalles en [`docs/pruebas-cruzadas.md`](docs/pruebas-cruzadas.md).
+
 ---
 
 ## 🔌 Endpoints
