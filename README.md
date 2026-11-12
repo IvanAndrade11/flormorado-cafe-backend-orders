@@ -47,14 +47,16 @@ El plan completo, con el avance por paso, vive en el [plan de trabajo](https://c
 | ---- | ---------------------------------------------- | --------------------- |
 | 1    | Andamiaje, tooling, CI y documentación         | ✅ Completa           |
 | 2    | Núcleo del pedido y base de datos D1           | ✅ Completa           |
-| 3    | Correo al cliente y resumen al negocio         | ✅ Falta prueba real  |
+| 3    | Correo al cliente y resumen al negocio         | ✅ Completa           |
 | 4    | Panel de control de pedidos (`FMC-0020`)       | ✅ Endpoints listos — la interfaz vive en el frontend |
 | 5    | Conexión con el checkout del frontend          | ✅ PR en revisión     |
-| 6    | Clientes y pago con BRE-B (`FMC-0017`)         | ✅ Llave y QR definitivos (`FMC-0026`) — falta prueba real |
+| 6    | Clientes y pago con BRE-B (`FMC-0017`)         | ✅ Completa — llave y QR definitivos (`FMC-0026`) |
 | 7    | Canal de WhatsApp por la API de Meta (`FMC-0024`) | 🚫 Descartado — Meta no aprobó la verificación del negocio |
 | 8    | Endurecimiento: límite de tasa, Turnstile y alertas (`FMC-0021`) | 🔨 En curso |
 
 Fuera del plan por fases: el endpoint `POST /contact` (`FMC-0019`), que guarda y reenvía los mensajes del formulario de contacto del frontend al correo del negocio. ✅ Completo.
+
+También fuera del plan por fases (`FMC-0030`): actualización de `zod`/`hono` por vulnerabilidades reportadas en `npm audit`, reducción de vulnerabilidades en dependencias de desarrollo, y la prueba de contrato cruzado con el frontend (ver [Scripts disponibles](#-scripts-disponibles) y [`docs/pruebas-cruzadas.md`](docs/pruebas-cruzadas.md)). ✅ Completo.
 
 ---
 
@@ -132,6 +134,8 @@ El endpoint queda expuesto en internet, así que esta capa evita que alguien lo 
 
 **Los límites de tasa son una capa contra el abuso, no contabilidad exacta.** Cloudflare los cuenta por ubicación y de forma eventualmente consistente, y el código falla abierto si el binding falta o no responde. Las cifras son generosas porque muchos clientes comparten IP (datos móviles, oficinas). Van definidas en `wrangler.toml`; `period` solo admite 10 o 60 segundos.
 
+**Dependencias.** `npm audit` se revisa periódicamente; las vulnerabilidades con parche disponible se resuelven con `npm update`/`npm audit fix` dentro del rango ya declarado en `package.json` (último paso, `FMC-0030`: `zod` por agotamiento de memoria validando colecciones sobredimensionadas, CVSS 7.5, y `hono` por un bypass de middleware en `serveStatic` que este servicio no usa). Lo que queda tras `npm audit fix` sin `--force` son vulnerabilidades moderadas en herramientas de desarrollo (cadena de ESLint/typescript-eslint), que nunca llegan al Worker desplegado.
+
 **Alerta de notificaciones fallidas.** El cron de cada hora, además del resumen de pedidos, revisa pedidos y mensajes cuyo correo falló, o que llevan más de 30 minutos en `pendiente` —el envío corre en segundo plano y un Worker cortado deja el estado sin actualizar—, y manda **un solo correo** al negocio con la lista. `failure_alerted` (migración `0007`) evita repetir el aviso y solo se marca cuando el correo salió: si el fallo es de Resend, el aviso se reintenta la hora siguiente. Las filas anteriores a la migración se dan por avisadas. En el panel, la lista de pedidos y la de mensajes marcan esos casos con «Notificación fallida».
 
 ---
@@ -193,6 +197,8 @@ Los **secretos** viven en el almacén de Cloudflare y se cargan con `npx wrangle
 | `npx tsc --noEmit`       | Verificación de tipos sin emitir archivos            |
 
 Para correr un solo archivo de pruebas: `npx vitest run src/services/orders.test.ts`
+
+`npm run test:contract` corre aparte la prueba de contrato que cruza este repo con el frontend — no la incluye `npm test`/CI, y necesita que `flormorado-cafe-frontend-react-app` esté clonado al lado de este. Detalles en [`docs/pruebas-cruzadas.md`](docs/pruebas-cruzadas.md).
 
 ---
 
